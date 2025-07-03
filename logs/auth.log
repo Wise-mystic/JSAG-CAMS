@@ -1,0 +1,43 @@
+{"category":"auth","error":"Email already registered","level":"error","message":"Registration failed","phoneNumber":"+233551234567","service":"cams-backend","timestamp":"2025-06-30 05:20:54"}
+{"category":"auth","error":"Phone number already registered","level":"error","message":"Registration failed","phoneNumber":"+233551234567","service":"cams-backend","timestamp":"2025-06-30 05:22:52"}
+{"category":"auth","error":"Account not verified. OTP sent to your phone number","level":"error","message":"Login failed","phoneNumber":"0551234567","service":"cams-backend","timestamp":"2025-06-30 05:22:52"}
+{"category":"auth","error":"Account not verified. OTP sent to your phone number","level":"error","message":"Login failed","phoneNumber":"0551234567","service":"cams-backend","timestamp":"2025-06-30 05:23:16"}
+{"category":"auth","error":"Account not verified. OTP sent to your phone number","level":"error","message":"Login failed","phoneNumber":"0551234567","service":"cams-backend","timestamp":"2025-06-30 05:24:26"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"+233591318539","service":"cams-backend","timestamp":"2025-06-30 05:30:49","userId":"68622079c5bb1a7935dba140"}
+{"category":"auth","error":"Phone number already registered","level":"error","message":"Registration failed","phoneNumber":"+233551234567","service":"cams-backend","timestamp":"2025-06-30 18:57:27"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"+233591318539","service":"cams-backend","timestamp":"2025-06-30 18:57:28","userId":"68622079c5bb1a7935dba140"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"+233591318539","service":"cams-backend","timestamp":"2025-06-30 18:57:49","userId":"68622079c5bb1a7935dba140"}
+{"category":"auth","error":"Phone number already registered","level":"error","message":"Registration failed","phoneNumber":"+233551234567","service":"cams-backend","timestamp":"2025-06-30 18:59:23"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"+233591318539","service":"cams-backend","timestamp":"2025-06-30 18:59:24","userId":"68622079c5bb1a7935dba140"}
+{"category":"auth","error":"Phone number already registered","level":"error","message":"Registration failed","phoneNumber":"+233591318519","service":"cams-backend","timestamp":"2025-06-30 19:01:23"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"+233591318539","service":"cams-backend","timestamp":"2025-06-30 19:01:24","userId":"68622079c5bb1a7935dba140"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"+233591318539","service":"cams-backend","timestamp":"2025-06-30 19:01:53","userId":"68622079c5bb1a7935dba140"}
+{"category":"auth","error":"Phone number already registered","level":"error","message":"Registration failed","phoneNumber":"0551234567","service":"cams-backend","timestamp":"2025-07-01 10:07:06"}
+{"category":"auth","error":"OTP has expired","level":"error","message":"OTP verification failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 10:11:44"}
+{"category":"auth","error":"OTP has expired","level":"error","message":"OTP verification failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 10:12:40"}
+{"category":"auth","error":"OTP has expired","level":"error","message":"OTP verification failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 10:12:45"}
+{"category":"auth","error":"OTP has expired","level":"error","message":"OTP verification failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 10:14:29"}
+{"category":"auth","error":"OTP has expired","level":"error","message":"OTP verification failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 11:45:17"}
+{"category":"auth","error":"Phone number already registered","level":"error","message":"Registration failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 11:49:09"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 11:50:37","userId":"6863cb0ed9c5d213652379d8"}
+{"category":"auth","error":"Cannot read properties of undefined (reading 'authService')","level":"error","message":"Password reset failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 11:52:59"}
+{"category":"auth","error":"Cannot read properties of undefined (reading 'authService')","level":"error","message":"Password reset failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 11:54:14"}
+{"category":"auth","error":"cache is not defined","level":"error","message":"Password reset OTP verification failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 12:15:31"}
+{"category":"auth","error":"cache is not defined","level":"error","message":"Password reset request failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 12:36:50"}
+{"category":"auth","error":"Invalid or expired password reset session","level":"error","message":"Complete session password reset failed","service":"cams-backend","timestamp":"2025-07-01 12:43:36"}
+{"category":"auth","error":"Invalid or expired password reset session","level":"error","message":"Complete session password reset failed","service":"cams-backend","timestamp":"2025-07-01 12:44:18"}
+{"category":"auth","error":"Invalid or expired password reset session","level":"error","message":"Complete session password reset failed","service":"cams-backend","timestamp":"2025-07-01 12:48:51"}
+{"category":"auth","error":"Invalid or expired password reset session","level":"error","message":"Complete session password reset failed","service":"cams-backend","timestamp":"2025-07-01 12:48:55"}
+{"category":"auth","error":"Invalid or expired password reset session","level":"error","message":"Complete session password reset failed","service":"cams-backend","timestamp":"2025-07-01 12:54:28"}
+{"category":"auth","error":"Invalid or expired password reset session","level":"error","message":"Complete session password reset failed","service":"cams-backend","timestamp":"2025-07-01 12:55:09"}
+{"category":"auth","error":"Invalid or expired password reset session","level":"error","message":"Complete session password reset failed","service":"cams-backend","timestamp":"2025-07-01 12:58:13"}
+{"category":"auth","error":"Invalid or expired password reset session","level":"error","message":"Complete session password reset failed","service":"cams-backend","timestamp":"2025-07-01 13:03:20"}
+{"category":"auth","error":"Invalid credentials","level":"error","message":"Login failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 13:15:31"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 13:16:17","userId":"6863cb0ed9c5d213652379d8"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 13:27:26","userId":"6863cb0ed9c5d213652379d8"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 13:43:56","userId":"6863e55a7ec6a86ad47dec48"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 14:03:53","userId":"6863e55a7ec6a86ad47dec48"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-01 14:12:04","userId":"6863e55a7ec6a86ad47dec48"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-03 09:07:56","userId":"6863e55a7ec6a86ad47dec48"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318000","service":"cams-backend","timestamp":"2025-07-03 09:32:52","userId":"68664db35eb73018aaed9c6c"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318000","service":"cams-backend","timestamp":"2025-07-03 09:45:18","userId":"68664db35eb73018aaed9c6c"}
