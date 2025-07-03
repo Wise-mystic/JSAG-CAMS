@@ -1,10 +1,18 @@
-const UserService = require('../services/user.service');
-const { validateInput } = require('../middleware/validation.middleware');
-const { ApiError } = require('../middleware/error.middleware');
 const { USER_ROLES } = require('../utils/constants');
+const UserService = require('../services/user.service');
 const logger = require('../utils/logger');
+const { ApiError } = require('../middleware/error.middleware');
+const { validateInput } = require('../middleware/validation.middleware');
 
 class UserController {
+  constructor() {
+    // Bind methods to preserve 'this' context
+    this.convertToCSV = this.convertToCSV.bind(this);
+    this.bulkExport = this.bulkExport.bind(this);
+    this.getRole = this.getRole.bind(this);
+    this.getRoleUIConfig = this.getRoleUIConfig.bind(this);
+  }
+
   // GET /api/v1/users
   async listUsers(req, res, next) {
     try {
@@ -566,25 +574,39 @@ class UserController {
 
   // Helper methods
   convertToCSV(users) {
+    if (!Array.isArray(users)) {
+      throw new Error('Input must be an array of users');
+    }
+
     const headers = [
       'ID', 'Full Name', 'Phone Number', 'Email', 'Role', 
-      'Department', 'Ministry', 'Is Active', 'Is Verified', 'Created At'
+      'Departments', 'Ministry', 'Is Active', 'Is Verified', 'Created At'
     ];
     
-    const rows = users.map(user => [
-      user._id,
-      user.fullName,
-      user.phoneNumber,
-      user.email || '',
-      user.role,
-      user.departmentIds?.map(id => user.departmentId?.name).join(',') || '',
-      user.ministryId?.name || '',
-      user.isActive,
-      user.isVerified,
-      user.createdAt
-    ]);
+    // Helper to escape CSV values
+    const escapeCSV = (value) => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
 
-    return [headers, ...rows].map(row => row.join(',')).join('\n');
+    const rows = users.map(user => [
+      user._id || '',
+      user.fullName || '',
+      user.phoneNumber || '',
+      user.email || '',
+      user.role || '',
+      (user.departments || []).map(d => d.name).join('; ') || '',
+      user.ministry?.name || '',
+      user.isActive ? 'Yes' : 'No',
+      user.isVerified ? 'Yes' : 'No',
+      user.createdAt ? new Date(user.createdAt).toISOString() : ''
+    ].map(escapeCSV));
+
+    return [headers.map(escapeCSV), ...rows].join('\n');
   }
 
   getRoleUIConfig(role) {

@@ -494,7 +494,7 @@ class UserService {
     }
 
     // Check permissions
-    if (!this.canDeleteUser(deletedBy, deletedByRole, user)) {
+    if (!this.canDeleteUser(deletedByRole, deletedBy, user)) {
       throw ApiError.forbidden('Access denied', ERROR_CODES.ACCESS_DENIED);
     }
 
