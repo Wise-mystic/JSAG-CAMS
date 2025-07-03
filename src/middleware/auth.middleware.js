@@ -40,9 +40,9 @@ const authenticateToken = async (req, res, next) => {
     // Get user from database
     const user = await User.findById(decoded.userId)
       .select('-password')
-      .populate('departmentId', 'name')
+      .populate('departmentIds', 'name category')
       .populate('ministryId', 'name')
-      .populate('prayerTribes', 'name dayOfWeek');
+      .populate('prayerTribeId', 'name dayOfWeek');
     
     if (!user) {
       throw ApiError.unauthorized('User not found', ERROR_CODES.USER_NOT_FOUND);
@@ -103,9 +103,9 @@ const optionalAuth = async (req, res, next) => {
     // Get user from database
     const user = await User.findById(decoded.userId)
       .select('-password')
-      .populate('departmentId', 'name')
+      .populate('departmentIds', 'name category')
       .populate('ministryId', 'name')
-      .populate('prayerTribes', 'name dayOfWeek');
+      .populate('prayerTribeId', 'name dayOfWeek');
     
     if (user && user.isActive) {
       req.user = user;

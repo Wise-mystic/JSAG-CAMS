@@ -48,11 +48,11 @@ router.post('/',
   departmentCreationLimiter,
   validateRequest(departmentSchemas.create),
   authorize({
-    permission: 'departments:create',
     allowedRoles: [
       USER_ROLES.SUPER_ADMIN, 
       USER_ROLES.SENIOR_PASTOR
-    ]
+    ],
+    checkHierarchy: true
   }),
   controller.createDepartment
 );

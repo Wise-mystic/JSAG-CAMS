@@ -2,7 +2,7 @@
 // Custom Joi validation rules and helpers
 
 const Joi = require('joi');
-const { USER_ROLES, EVENT_TYPES, ATTENDANCE_STATUS, DEPARTMENTS, VALIDATION } = require('./constants');
+const { USER_ROLES, EVENT_TYPES, ATTENDANCE_STATUS, DEPARTMENT_CATEGORIES, VALIDATION } = require('./constants');
 
 // Custom validation helpers
 const customValidators = {
@@ -166,7 +166,7 @@ const userSchemas = {
     departmentIds: Joi.array()
       .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
       .min(1)
-      .optional(),
+      .required(),
 
     ministryId: Joi.string()
       .pattern(/^[0-9a-fA-F]{24}$/)
@@ -406,8 +406,8 @@ const departmentSchemas = {
       .max(50)
       .required(),
     
-    code: Joi.string()
-      .custom(customValidators.departmentCode)
+    category: Joi.string()
+      .valid(...Object.values(DEPARTMENT_CATEGORIES))
       .required(),
     
     description: Joi.string()
@@ -415,22 +415,37 @@ const departmentSchemas = {
       .max(200)
       .optional(),
     
-    parentDepartment: Joi.string()
+    parentDepartmentId: Joi.string()
       .pattern(/^[0-9a-fA-F]{24}$/)
       .optional(),
     
-    leader: Joi.string()
+    leaderId: Joi.string()
       .pattern(/^[0-9a-fA-F]{24}$/)
       .optional(),
     
-    mutuallyExclusive: Joi.array()
+    mutuallyExclusiveWith: Joi.array()
       .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
       .optional(),
     
     settings: Joi.object({
       requiresApproval: Joi.boolean().default(false),
       maxMembers: Joi.number().integer().min(1).optional(),
-      allowMultipleMembership: Joi.boolean().default(true)
+      allowSubgroups: Joi.boolean().default(true),
+      meetingSchedule: Joi.object({
+        dayOfWeek: Joi.string()
+          .valid('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')
+          .optional(),
+        time: Joi.string().optional(),
+        frequency: Joi.string()
+          .valid('weekly', 'bi-weekly', 'monthly')
+          .default('weekly')
+      }).optional()
+    }).optional(),
+
+    contactInfo: Joi.object({
+      email: Joi.string().email().optional(),
+      phone: Joi.string().optional(),
+      location: Joi.string().optional()
     }).optional()
   }),
 
@@ -446,7 +461,7 @@ const departmentSchemas = {
       .max(200)
       .optional(),
     
-    leader: Joi.string()
+    leaderId: Joi.string()
       .pattern(/^[0-9a-fA-F]{24}$/)
       .optional(),
     
@@ -455,7 +470,7 @@ const departmentSchemas = {
     settings: Joi.object({
       requiresApproval: Joi.boolean().optional(),
       maxMembers: Joi.number().integer().min(1).optional(),
-      allowMultipleMembership: Joi.boolean().optional()
+      allowSubgroups: Joi.boolean().optional()
     }).optional()
   })
 };

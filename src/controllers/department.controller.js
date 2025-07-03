@@ -23,7 +23,7 @@ class DepartmentController {
       const filters = {
         scopedAccess: true,
         currentUserRole: req.user.role,
-        departmentId: req.user.departmentId
+        departmentIds: req.user.departmentIds
       };
 
       const options = {
@@ -425,7 +425,7 @@ class DepartmentController {
       const filters = {
         scopedAccess: true,
         currentUserRole: req.user.role,
-        departmentId: req.user.departmentId
+        departmentIds: req.user.departmentIds
       };
 
       const options = {

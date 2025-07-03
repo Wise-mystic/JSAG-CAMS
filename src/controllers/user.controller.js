@@ -13,7 +13,7 @@ class UserController {
       const filters = {
         scopedAccess: true,
         currentUserRole: req.user.role,
-        departmentId: req.user.departmentId
+        departmentId: req.user.departmentIds?.[0] // Use first department for backwards compatibility
       };
 
       const options = {
@@ -357,7 +357,7 @@ class UserController {
         isActive: isActive !== undefined ? isActive === 'true' : undefined,
         scopedAccess: true,
         currentUserRole: req.user.role,
-        departmentId: req.user.departmentId
+        departmentId: req.user.departmentIds?.[0] // Use first department for backwards compatibility
       };
 
       const users = await UserService.searchUsers(filters);
@@ -379,7 +379,7 @@ class UserController {
   // GET /api/v1/users/stats
   async getUserStats(req, res, next) {
     try {
-      const stats = await UserService.getUserStats(req.user.role, req.user.departmentId);
+      const stats = await UserService.getUserStats(req.user.role, req.user.departmentIds?.[0]);
 
       res.status(200).json({
         success: true,
@@ -577,7 +577,7 @@ class UserController {
       user.phoneNumber,
       user.email || '',
       user.role,
-      user.departmentId?.name || '',
+      user.departmentIds?.map(id => user.departmentId?.name).join(',') || '',
       user.ministryId?.name || '',
       user.isActive,
       user.isVerified,

@@ -42,7 +42,7 @@ class DepartmentService {
 
     // Role-based access control
     if (filters.scopedAccess && filters.currentUserRole === USER_ROLES.DEPARTMENT_LEADER) {
-      query._id = filters.departmentId;
+      query._id = { $in: filters.departmentIds };
     }
 
     const skip = (page - 1) * limit;
@@ -66,8 +66,9 @@ class DepartmentService {
     // Get member counts for each department
     const departmentIds = departments.map(d => d._id);
     const memberCounts = await User.aggregate([
-      { $match: { departmentId: { $in: departmentIds }, isActive: true } },
-      { $group: { _id: '$departmentId', count: { $sum: 1 } } }
+      { $match: { departmentIds: { $in: departmentIds }, isActive: true } },
+      { $unwind: '$departmentIds' },
+      { $group: { _id: '$departmentIds', count: { $sum: 1 } } }
     ]);
 
     // Attach member counts
@@ -204,17 +205,19 @@ class DepartmentService {
       parentDepartmentId,
       allowsOverlap,
       settings,
-      createdBy,
-      isActive: true
+      metadata: {
+        createdBy,
+        memberCount: 0,
+        lastActivityDate: new Date()
+      }
     });
 
     await department.save();
 
-    // Update leader's department assignment if provided
+    // If leader is assigned, add department to their departmentIds
     if (leaderId) {
-      await User.findByIdAndUpdate(leaderId, { 
-        departmentId: department._id,
-        role: USER_ROLES.DEPARTMENT_LEADER // Auto-assign department leader role
+      await User.findByIdAndUpdate(leaderId, {
+        $addToSet: { departmentIds: department._id }
       });
     }
 
@@ -225,16 +228,17 @@ class DepartmentService {
       resource: 'department',
       resourceId: department._id,
       details: {
-        name,
+        departmentName: name,
         category,
-        leaderId,
-        parentDepartmentId
+        leaderId
       },
-      ipAddress,
-      result: { success: true }
+      ipAddress
     });
 
-    return await this.getDepartmentById(department._id, createdBy, createdByRole);
+    // Return created department with populated fields
+    return Department.findById(department._id)
+      .populate('leaderId', 'fullName phoneNumber role')
+      .populate('parentDepartmentId', 'name category');
   }
 
   /**
@@ -373,29 +377,32 @@ class DepartmentService {
       isActive
     } = options;
 
-    const query = { departmentId };
+    const query = {
+      departmentIds: departmentId,
+      isActive: typeof isActive === 'boolean' ? isActive : true
+    };
 
-    // Apply filters
     if (search) {
       query.$or = [
         { fullName: { $regex: search, $options: 'i' } },
-        { phoneNumber: { $regex: search, $options: 'i' } }
+        { phoneNumber: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
       ];
     }
 
     if (role) query.role = role;
-    if (typeof isActive === 'boolean') query.isActive = isActive;
 
     const skip = (page - 1) * limit;
 
     const [members, total] = await Promise.all([
       User.find(query)
-        .select('-password')
+        .populate('departmentIds', 'name category')
         .populate('ministryId', 'name')
-        .populate('prayerTribes', 'name dayOfWeek')
+        .populate('prayerTribeId', 'name dayOfWeek')
         .sort(sort)
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .select('-password'),
       User.countDocuments(query)
     ]);
 
@@ -412,11 +419,11 @@ class DepartmentService {
   }
 
   /**
-   * Add members to department with validation
+   * Add members to department
    */
   async addMembersToDepartment(departmentId, memberIds, addedBy, addedByRole, ipAddress) {
     const department = await Department.findById(departmentId);
-    if (!department) {
+    if (!department || !department.isActive) {
       throw ApiError.notFound('Department not found', ERROR_CODES.DEPARTMENT_NOT_FOUND);
     }
 
@@ -425,80 +432,85 @@ class DepartmentService {
       throw ApiError.forbidden('Access denied', ERROR_CODES.ACCESS_DENIED);
     }
 
-    // Validate member IDs
+    // Initialize result arrays
+    const successful = [];
+    const failed = [];
+    const warnings = [];
+
+    // Validate members exist and can be added
     const members = await User.find({ _id: { $in: memberIds } });
     if (members.length !== memberIds.length) {
-      throw ApiError.badRequest('Some member IDs are invalid', ERROR_CODES.INVALID_INPUT);
+      const foundIds = members.map(m => m._id.toString());
+      memberIds.forEach(id => {
+        if (!foundIds.includes(id.toString())) {
+          failed.push({ id, reason: 'User not found' });
+        }
+      });
+      if (failed.length === memberIds.length) {
+        throw ApiError.badRequest('All member IDs are invalid', ERROR_CODES.INVALID_INPUT);
+      }
     }
 
-    const results = {
-      successful: [],
-      failed: [],
-      warnings: []
-    };
-
+    // Check mutual exclusivity rules and current membership
     for (const member of members) {
-      try {
-        // Check mutual exclusivity rules
-        if (await this.violatesMutualExclusivity(member._id, department.category)) {
-          results.failed.push({
-            memberId: member._id,
-            name: member.fullName,
-            reason: 'Violates mutual exclusivity rules (Music/Ushering)'
+      const memberId = member._id.toString();
+      
+      // Skip if already a member
+      if (member.departmentIds && member.departmentIds.includes(departmentId)) {
+        warnings.push({ id: memberId, reason: 'Already a member of this department' });
+        continue;
+      }
+
+      if (!department.allowsOverlap) {
+        const violatesMutualExclusivity = await this.violatesMutualExclusivity(
+          memberId,
+          department.category
+        );
+        if (violatesMutualExclusivity) {
+          failed.push({
+            id: memberId,
+            reason: `Cannot be in multiple departments of category ${department.category}`
           });
           continue;
         }
+      }
+      
+      successful.push(memberId);
+    }
 
-        // Check if member is already in a department
-        if (member.departmentId && member.departmentId.toString() !== departmentId.toString()) {
-          // Handle department transfer
-          await this.transferMemberBetweenDepartments(
-            member._id, 
-            member.departmentId, 
-            departmentId,
-            addedBy
-          );
-          
-          results.warnings.push({
-            memberId: member._id,
-            name: member.fullName,
-            message: 'Transferred from another department'
-          });
-        } else {
-          // Simple assignment
-          await User.findByIdAndUpdate(member._id, { departmentId });
-        }
+    if (successful.length > 0) {
+      // Add successful members to department
+      await User.updateMany(
+        { _id: { $in: successful } },
+        { $addToSet: { departmentIds: departmentId } }
+      );
 
-        results.successful.push({
-          memberId: member._id,
-          name: member.fullName
-        });
-
-      } catch (error) {
-        results.failed.push({
-          memberId: member._id,
-          name: member.fullName,
-          reason: error.message
+      // Log member additions
+      for (const memberId of successful) {
+        await AuditLog.logAction({
+          userId: addedBy,
+          action: AUDIT_ACTIONS.DEPARTMENT_ADD_MEMBER,
+          resource: 'department',
+          resourceId: departmentId,
+          details: {
+            memberId,
+            departmentId
+          },
+          ipAddress,
+          result: { success: true }
         });
       }
     }
 
-    // Log member addition
-    await AuditLog.logAction({
-      userId: addedBy,
-      action: AUDIT_ACTIONS.DEPARTMENT_MEMBER_ADD,
-      resource: 'department',
-      resourceId: departmentId,
-      details: {
-        addedMembers: results.successful.length,
-        failedMembers: results.failed.length,
-        memberIds
-      },
-      ipAddress,
-      result: { success: true }
-    });
+    const updatedMembers = await this.getDepartmentMembers(departmentId);
 
-    return results;
+    return {
+      successful,
+      failed,
+      warnings,
+      members: updatedMembers.members,
+      pagination: updatedMembers.pagination
+    };
   }
 
   /**
@@ -506,13 +518,8 @@ class DepartmentService {
    */
   async removeMemberFromDepartment(departmentId, memberId, removedBy, removedByRole, ipAddress) {
     const department = await Department.findById(departmentId);
-    if (!department) {
+    if (!department || !department.isActive) {
       throw ApiError.notFound('Department not found', ERROR_CODES.DEPARTMENT_NOT_FOUND);
-    }
-
-    const member = await User.findById(memberId);
-    if (!member) {
-      throw ApiError.notFound('Member not found', ERROR_CODES.USER_NOT_FOUND);
     }
 
     // Check permissions
@@ -520,32 +527,44 @@ class DepartmentService {
       throw ApiError.forbidden('Access denied', ERROR_CODES.ACCESS_DENIED);
     }
 
-    // Prevent removing department leader
-    if (department.leaderId && department.leaderId.toString() === memberId.toString()) {
+    // Check if member exists and is in department
+    const member = await User.findOne({ 
+      _id: memberId,
+      departmentIds: departmentId
+    });
+
+    if (!member) {
+      throw ApiError.notFound('Member not found in department', ERROR_CODES.USER_NOT_FOUND);
+    }
+
+    // Cannot remove department leader
+    if (department.leaderId?.toString() === memberId) {
       throw ApiError.badRequest(
-        'Cannot remove department leader. Assign new leader first.',
+        'Cannot remove department leader. Assign a new leader first.',
         ERROR_CODES.BUSINESS_RULE_VIOLATION
       );
     }
 
     // Remove member from department
-    await User.findByIdAndUpdate(memberId, { $unset: { departmentId: 1 } });
+    await User.findByIdAndUpdate(memberId, {
+      $pull: { departmentIds: departmentId }
+    });
 
     // Log member removal
     await AuditLog.logAction({
       userId: removedBy,
-      action: AUDIT_ACTIONS.DEPARTMENT_MEMBER_REMOVE,
+      action: AUDIT_ACTIONS.DEPARTMENT_REMOVE_MEMBER,
       resource: 'department',
       resourceId: departmentId,
       details: {
-        removedMemberId: memberId,
-        memberName: member.fullName
+        memberId,
+        departmentId
       },
       ipAddress,
       result: { success: true }
     });
 
-    return { success: true, message: SUCCESS_MESSAGES.MEMBER_REMOVED };
+    return { message: 'Member removed successfully' };
   }
 
   /**

@@ -288,14 +288,14 @@ const schemas = {
       email: commonSchemas.email.optional(),
       password: commonSchemas.password.required(),
       role: Joi.string().valid(...Object.values(require('../utils/constants').USER_ROLES)).required(),
-      departmentId: commonSchemas.objectId.optional(),
+      departmentIds: Joi.array().items(commonSchemas.objectId).min(1).required(),
       ministryId: commonSchemas.objectId.optional(),
     }),
     
     update: Joi.object({
       fullName: Joi.string().min(2).max(100).optional(),
       email: commonSchemas.email.optional(),
-      departmentId: commonSchemas.objectId.optional().allow(null),
+      departmentIds: Joi.array().items(commonSchemas.objectId).min(1).optional(),
       ministryId: commonSchemas.objectId.optional().allow(null),
       isActive: Joi.boolean().optional(),
     }),
@@ -310,7 +310,7 @@ const schemas = {
       sortBy: commonSchemas.sortBy,
       sortOrder: commonSchemas.sortOrder,
       role: Joi.string().valid(...Object.values(require('../utils/constants').USER_ROLES)).optional(),
-      departmentId: commonSchemas.objectId.optional(),
+      departmentIds: Joi.array().items(commonSchemas.objectId).optional(),
       isActive: Joi.boolean().optional(),
       search: Joi.string().optional(),
     }),
@@ -339,7 +339,8 @@ const schemas = {
     }),
     
     addMember: Joi.object({
-      userId: commonSchemas.objectId.required(),
+      userIds: Joi.array().items(commonSchemas.objectId).min(1).required(),
+      sendNotification: Joi.boolean().default(true)
     }),
   },
   

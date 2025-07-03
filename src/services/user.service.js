@@ -45,14 +45,14 @@ class UserService {
     }
 
     if (role) query.role = role;
-    if (department) query.departmentId = department;
+    if (department) query.departmentIds = department;
     if (typeof isActive === 'boolean') query.isActive = isActive;
     if (typeof isVerified === 'boolean') query.isVerified = isVerified;
 
     // Role-based filtering for scoped access
     if (filters.scopedAccess && filters.currentUserRole !== USER_ROLES.SUPER_ADMIN) {
       if (filters.currentUserRole === USER_ROLES.DEPARTMENT_LEADER && filters.departmentId) {
-        query.departmentId = filters.departmentId;
+        query.departmentIds = filters.departmentId;
       }
     }
 
@@ -60,9 +60,9 @@ class UserService {
 
     const [users, total] = await Promise.all([
       User.find(query)
-        .populate('departmentId', 'name category')
+        .populate('departmentIds', 'name category')
         .populate('ministryId', 'name')
-        .populate('prayerTribes', 'name dayOfWeek')
+        .populate('prayerTribeId', 'name dayOfWeek')
         .sort(sort)
         .skip(skip)
         .limit(limit)
@@ -91,9 +91,9 @@ class UserService {
     }
 
     const user = await User.findById(userId)
-      .populate('departmentId', 'name category leaderId')
+      .populate('departmentIds', 'name category leaderId')
       .populate('ministryId', 'name leaderId')
-      .populate('prayerTribes', 'name dayOfWeek leaderId')
+      .populate('prayerTribeId', 'name dayOfWeek leaderId')
       .populate('clockerScopes.targetId')
       .select('-password');
 
@@ -119,9 +119,9 @@ class UserService {
       email,
       password,
       role = USER_ROLES.MEMBER,
-      departmentId,
+      departmentIds = [],
       ministryId,
-      prayerTribes = [],
+      prayerTribeId,
       clockerScopes = []
     } = userData;
 
@@ -147,11 +147,11 @@ class UserService {
       }
     }
 
-    // Validate department assignment
-    if (departmentId) {
-      const department = await Department.findById(departmentId);
-      if (!department) {
-        throw ApiError.badRequest('Invalid department', ERROR_CODES.INVALID_INPUT);
+    // Validate department assignments
+    if (departmentIds && departmentIds.length > 0) {
+      const departments = await Department.find({ _id: { $in: departmentIds } });
+      if (departments.length !== departmentIds.length) {
+        throw ApiError.badRequest('One or more invalid departments', ERROR_CODES.INVALID_INPUT);
       }
     }
 
@@ -163,6 +163,14 @@ class UserService {
       }
     }
 
+    // Validate prayer tribe assignment
+    if (prayerTribeId) {
+      const prayerTribe = await PrayerTribe.findById(prayerTribeId);
+      if (!prayerTribe) {
+        throw ApiError.badRequest('Invalid prayer tribe', ERROR_CODES.INVALID_INPUT);
+      }
+    }
+
     // Create user
     const user = new User({
       fullName,
@@ -170,9 +178,9 @@ class UserService {
       email,
       password,
       role,
-      departmentId,
+      departmentIds,
       ministryId,
-      prayerTribes,
+      prayerTribeId,
       clockerScopes,
       isActive: true,
       isVerified: true, // Admin-created users are auto-verified
@@ -191,8 +199,9 @@ class UserService {
         targetUserId: user._id,
         assignedRole: role,
         phoneNumber,
-        departmentId,
-        ministryId
+        departmentIds,
+        ministryId,
+        prayerTribeId
       },
       ipAddress,
       result: { success: true }
@@ -218,9 +227,9 @@ class UserService {
     const {
       fullName,
       email,
-      departmentId,
+      departmentIds,
       ministryId,
-      prayerTribes,
+      prayerTribeId,
       clockerScopes,
       isActive
     } = updateData;
@@ -247,15 +256,15 @@ class UserService {
     }
 
     // Update department
-    if (departmentId !== undefined && departmentId?.toString() !== user.departmentId?.toString()) {
-      if (departmentId) {
-        const department = await Department.findById(departmentId);
-        if (!department) {
-          throw ApiError.badRequest('Invalid department', ERROR_CODES.INVALID_INPUT);
+    if (departmentIds !== undefined && departmentIds?.length !== user.departmentIds.length) {
+      if (departmentIds && departmentIds.length > 0) {
+        const departments = await Department.find({ _id: { $in: departmentIds } });
+        if (departments.length !== departmentIds.length) {
+          throw ApiError.badRequest('One or more invalid departments', ERROR_CODES.INVALID_INPUT);
         }
       }
-      updatePayload.departmentId = departmentId;
-      changes.departmentId = { from: user.departmentId, to: departmentId };
+      updatePayload.departmentIds = departmentIds;
+      changes.departmentIds = { from: user.departmentIds, to: departmentIds };
     }
 
     // Update ministry (enforce one ministry rule)
@@ -270,10 +279,16 @@ class UserService {
       changes.ministryId = { from: user.ministryId, to: ministryId };
     }
 
-    // Update prayer tribes
-    if (prayerTribes !== undefined) {
-      updatePayload.prayerTribes = prayerTribes;
-      changes.prayerTribes = { from: user.prayerTribes, to: prayerTribes };
+    // Update prayer tribe
+    if (prayerTribeId !== undefined && prayerTribeId?.toString() !== user.prayerTribeId?.toString()) {
+      if (prayerTribeId) {
+        const prayerTribe = await PrayerTribe.findById(prayerTribeId);
+        if (!prayerTribe) {
+          throw ApiError.badRequest('Invalid prayer tribe', ERROR_CODES.INVALID_INPUT);
+        }
+      }
+      updatePayload.prayerTribeId = prayerTribeId;
+      changes.prayerTribeId = { from: user.prayerTribeId, to: prayerTribeId };
     }
 
     // Update clocker scopes
@@ -296,7 +311,7 @@ class UserService {
       userId,
       { ...updatePayload, updatedAt: Date.now() },
       { new: true, runValidators: true }
-    ).populate('departmentId ministryId prayerTribes');
+    ).populate('departmentIds ministryId prayerTribeId');
 
     // Log user update
     await AuditLog.logAction({
@@ -385,9 +400,9 @@ class UserService {
     const attendanceQuery = Attendance.find(query)
       .populate({
         path: 'eventId',
-        select: 'title eventType startTime endTime departmentId',
+        select: 'title eventType startTime endTime departmentIds',
         populate: {
-          path: 'departmentId',
+          path: 'departmentIds',
           select: 'name'
         }
       })
@@ -572,18 +587,18 @@ class UserService {
     if (role) query.role = role;
 
     // Filter by department
-    if (department) query.departmentId = department;
+    if (department) query.departmentIds = department;
 
     // Filter by active status
     if (typeof isActive === 'boolean') query.isActive = isActive;
 
     // Apply scoped access for department leaders
     if (scopedAccess && currentUserRole === USER_ROLES.DEPARTMENT_LEADER && departmentId) {
-      query.departmentId = departmentId;
+      query.departmentIds = departmentId;
     }
 
     const users = await User.find(query)
-      .populate('departmentId', 'name category')
+      .populate('departmentIds', 'name category')
       .populate('ministryId', 'name')
       .select('-password')
       .sort('fullName')
@@ -601,7 +616,7 @@ class UserService {
     // Base query for scoped access
     const baseQuery = {};
     if (userRole === USER_ROLES.DEPARTMENT_LEADER && userDepartmentId) {
-      baseQuery.departmentId = userDepartmentId;
+      baseQuery.departmentIds = userDepartmentId;
     }
 
     // Total users
@@ -709,8 +724,9 @@ class UserService {
       role: user.role,
       permissions,
       scopedAccess: {
-        departmentId: user.departmentId,
+        departmentIds: user.departmentIds,
         ministryId: user.ministryId,
+        prayerTribeId: user.prayerTribeId,
         clockerScopes: user.clockerScopes
       }
     };
@@ -737,10 +753,10 @@ class UserService {
     }
 
     // Update user with new departments (keeping existing ones)
-    const existingDeptIds = user.departments || [];
+    const existingDeptIds = user.departmentIds || [];
     const newDeptIds = [...new Set([...existingDeptIds.map(d => d.toString()), ...departmentIds])];
     
-    user.departments = newDeptIds;
+    user.departmentIds = newDeptIds;
     await user.save();
 
     // Log the action
@@ -776,12 +792,12 @@ class UserService {
     }
 
     // Check if user is in the department
-    if (user.departmentId?.toString() !== departmentId) {
-      throw ApiError.badRequest('User is not in this department', ERROR_CODES.INVALID_INPUT);
+    if (user.departmentIds?.includes(departmentId)) {
+      throw ApiError.badRequest('User is in this department', ERROR_CODES.INVALID_INPUT);
     }
 
     // Remove user from department
-    user.departmentId = null;
+    user.departmentIds = user.departmentIds.filter(id => id !== departmentId);
     await user.save();
 
     // Log the action

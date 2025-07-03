@@ -41,3 +41,5 @@
 {"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-03 09:07:56","userId":"6863e55a7ec6a86ad47dec48"}
 {"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318000","service":"cams-backend","timestamp":"2025-07-03 09:32:52","userId":"68664db35eb73018aaed9c6c"}
 {"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318000","service":"cams-backend","timestamp":"2025-07-03 09:45:18","userId":"68664db35eb73018aaed9c6c"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318000","service":"cams-backend","timestamp":"2025-07-03 11:13:33","userId":"68664db35eb73018aaed9c6c"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318000","service":"cams-backend","timestamp":"2025-07-03 11:13:41","userId":"68664db35eb73018aaed9c6c"}

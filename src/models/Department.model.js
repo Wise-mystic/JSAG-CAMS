@@ -127,7 +127,7 @@ departmentSchema.index({ parentDepartmentId: 1 });
 departmentSchema.virtual('members', {
   ref: 'User',
   localField: '_id',
-  foreignField: 'departmentId',
+  foreignField: 'departmentIds',
   count: true,
 });
 
@@ -192,26 +192,33 @@ departmentSchema.methods = {
     }
     
     // Check if user is already in this department
-    if (user.departmentId && user.departmentId.equals(this._id)) {
+    if (user.departmentIds && user.departmentIds.some(id => id.equals(this._id))) {
       return { canAdd: false, reason: 'User is already in this department' };
     }
     
     // Check maximum members limit
-    if (this.settings.maxMembers && this.metadata.memberCount >= this.settings.maxMembers) {
-      return { canAdd: false, reason: 'Department has reached maximum capacity' };
+    if (this.settings.maxMembers) {
+      const currentMemberCount = await User.countDocuments({
+        departmentIds: this._id,
+        isActive: true
+      });
+      
+      if (currentMemberCount >= this.settings.maxMembers) {
+        return { canAdd: false, reason: 'Department has reached maximum member limit' };
+      }
     }
     
-    // Check mutual exclusivity
-    if (user.departmentId && this.mutuallyExclusiveWith.length > 0) {
-      const isExclusive = this.mutuallyExclusiveWith.some(
-        deptId => deptId.equals(user.departmentId)
+    // Check mutual exclusivity rules
+    if (this.mutuallyExclusiveWith && this.mutuallyExclusiveWith.length > 0) {
+      const userDepartments = user.departmentIds || [];
+      const hasExclusiveDept = userDepartments.some(deptId => 
+        this.mutuallyExclusiveWith.some(exclusiveDeptId => exclusiveDeptId.equals(deptId))
       );
       
-      if (isExclusive) {
-        const currentDept = await mongoose.model('Department').findById(user.departmentId);
+      if (hasExclusiveDept) {
         return { 
           canAdd: false, 
-          reason: `User cannot be in both ${currentDept.name} and ${this.name} departments` 
+          reason: 'User is in a mutually exclusive department' 
         };
       }
     }
@@ -259,12 +266,11 @@ departmentSchema.methods = {
   async updateMemberCount() {
     const User = mongoose.model('User');
     const count = await User.countDocuments({ 
-      departmentId: this._id, 
+      departmentIds: this._id,
       isActive: true 
     });
     
     this.metadata.memberCount = count;
-    this.metadata.lastActivityDate = new Date();
     await this.save();
     
     return count;
@@ -290,50 +296,48 @@ departmentSchema.methods = {
 departmentSchema.statics = {
   // Find active departments
   async findActive(filter = {}) {
-    return await this.find({ ...filter, isActive: true })
-      .populate('leaderId', 'fullName email phoneNumber')
-      .populate('assistantLeaderIds', 'fullName email phoneNumber');
+    return this.find({ ...filter, isActive: true });
   },
   
-  // Get departments by category
+  // Find departments by category
   async findByCategory(category) {
-    return await this.find({ category, isActive: true });
+    return this.find({ category, isActive: true });
   },
   
   // Get root departments (no parent)
   async getRootDepartments() {
-    return await this.find({ 
-      parentDepartmentId: null, 
+    return this.find({ 
+      parentDepartmentId: null,
       isActive: true 
     });
   },
   
   // Search departments
   async searchDepartments(query) {
-    return await this.find({
+    return this.find({
       $or: [
-        { name: new RegExp(query, 'i') },
-        { description: new RegExp(query, 'i') },
+        { name: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } }
       ],
-      isActive: true,
+      isActive: true
     });
   },
   
   // Get department with full details
   async getWithDetails(departmentId) {
-    return await this.findById(departmentId)
-      .populate('leaderId', 'fullName email phoneNumber role')
-      .populate('assistantLeaderIds', 'fullName email phoneNumber role')
-      .populate('parentDepartmentId', 'name')
-      .populate('mutuallyExclusiveWith', 'name');
+    return this.findById(departmentId)
+      .populate('leaderId', 'fullName phoneNumber role')
+      .populate('assistantLeaderIds', 'fullName phoneNumber role')
+      .populate('parentDepartmentId', 'name category')
+      .populate('mutuallyExclusiveWith', 'name category');
   },
   
   // Validate mutual exclusivity rules
   async validateMutualExclusivity(userId, newDepartmentId) {
     const User = mongoose.model('User');
-    const user = await User.findById(userId).populate('departmentId');
+    const user = await User.findById(userId).populate('departmentIds');
     
-    if (!user || !user.departmentId) {
+    if (!user || !user.departmentIds) {
       return { valid: true };
     }
     

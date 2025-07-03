@@ -102,18 +102,15 @@ const canManageDepartment = () => {
       return next();
     }
     
-    // Department leader can only manage their own department
+    // Department leader can only manage their own departments
     if (req.user.role === USER_ROLES.DEPARTMENT_LEADER) {
-      const Department = require('../models/Department.model');
-      const department = await Department.findById(departmentId);
-      
-      if (!department) {
-        return next(ApiError.notFound('Department not found', ERROR_CODES.DEPARTMENT_NOT_FOUND));
+      if (!req.user.departmentIds || !req.user.departmentIds.includes(departmentId)) {
+        return next(ApiError.forbidden(
+          'You do not have permission to manage this department',
+          ERROR_CODES.INSUFFICIENT_PERMISSIONS
+        ));
       }
-      
-      if (department.leaderId?.toString() === req.user._id.toString()) {
-        return next();
-      }
+      return next();
     }
     
     return next(ApiError.forbidden(
@@ -324,6 +321,11 @@ const authorize = (options) => {
         requestedPermission: permission,
         allowedRoles: allowedRoles
       });
+
+      // Super admin has all permissions
+      if (userRole === USER_ROLES.SUPER_ADMIN) {
+        return next();
+      }
 
       // Check role-based access
       if (allowedRoles && !allowedRoles.includes(userRole)) {

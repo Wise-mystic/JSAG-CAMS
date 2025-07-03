@@ -167,7 +167,8 @@ const userSchema = new mongoose.Schema({
 // Indexes
 userSchema.index({ phoneNumber: 1 });
 userSchema.index({ email: 1 }, { sparse: true });
-userSchema.index({ role: 1, departmentId: 1 });
+userSchema.index({ role: 1 });
+userSchema.index({ departmentIds: 1 });
 userSchema.index({ isActive: 1 });
 userSchema.index({ fullName: 'text' });
 
@@ -175,7 +176,7 @@ userSchema.index({ fullName: 'text' });
 userSchema.virtual('departmentMemberCount', {
   ref: 'User',
   localField: '_id',
-  foreignField: 'departmentId',
+  foreignField: 'departmentIds',
   count: true,
 });
 
@@ -267,7 +268,7 @@ userSchema.methods = {
     };
     
     // Add direct assignments
-    if (this.departmentId) scopes.departments.push(this.departmentId);
+    if (this.departmentIds.length > 0) scopes.departments.push(...this.departmentIds);
     if (this.ministryId) scopes.ministries.push(this.ministryId);
     scopes.prayerTribes = [...this.prayerTribes];
     scopes.subgroups = [...this.subgroups];
