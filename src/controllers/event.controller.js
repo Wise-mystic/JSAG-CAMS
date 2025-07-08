@@ -1,7 +1,10 @@
 const EventService = require('../services/event.service');
 const { schemas } = require('../middleware/validation.middleware');
 const { ApiError } = require('../middleware/error.middleware');
+const { ERROR_CODES } = require('../utils/constants');
 const logger = require('../utils/logger');
+const { EVENT_STATUS } = require('../utils/constants');
+const mongoose = require('mongoose');
 
 class EventController {
   // GET /api/v1/events
@@ -49,13 +52,29 @@ class EventController {
   // POST /api/v1/events
   async createEvent(req, res, next) {
     try {
-      const { error } = schemas.event.create.validate(req.body);
+      const validationOptions = {
+        abortEarly: false,
+        allowUnknown: true,
+        stripUnknown: false,
+        presence: 'optional'
+      };
+      
+      const { error, value } = schemas.event.create.validate(req.body, validationOptions);
       if (error) {
-        return next(ApiError.badRequest(error.details[0].message));
+        const errors = error.details.map(detail => ({
+          field: detail.path.join('.'),
+          message: detail.message,
+        }));
+        
+        return next(ApiError.badRequest(
+          'Validation failed',
+          ERROR_CODES.VALIDATION_ERROR,
+          errors
+        ));
       }
 
       const event = await EventService.createEvent(
-        req.body,
+        value,
         req.user.id,
         req.user.role,
         req.ip || req.connection.remoteAddress
@@ -378,47 +397,66 @@ class EventController {
     }
   }
 
-  // POST /api/v1/events/recurring
+  // POST /api/v1/events/:id/recur - Make an existing event recurring
   async recurEvent(req, res, next) {
     try {
-      const { error } = schemas.event.create.validate(req.body);
-      if (error) {
-        return next(ApiError.badRequest(error.details[0].message));
+      const { frequency, interval, count, endDate, daysOfWeek } = req.body;
+      
+      // Validate required fields
+      if (!frequency) {
+        return next(ApiError.badRequest('Frequency is required (daily, weekly, monthly, yearly)'));
       }
 
-      if (!req.body.isRecurring) {
-        return next(ApiError.badRequest('isRecurring must be true for recurring events'));
+      if (!['daily', 'weekly', 'monthly', 'yearly'].includes(frequency)) {
+        return next(ApiError.badRequest('Invalid frequency. Must be: daily, weekly, monthly, or yearly'));
       }
 
-      if (!req.body.recurrenceRule) {
-        return next(ApiError.badRequest('recurrenceRule is required for recurring events'));
+      if (!count && !endDate) {
+        return next(ApiError.badRequest('Either count or endDate must be provided'));
       }
 
-      const event = await EventService.createEvent(
-        req.body,
+      if (count && endDate) {
+        return next(ApiError.badRequest('Provide either count OR endDate, not both'));
+      }
+
+      // Create recurring instances from the existing event
+      const result = await EventService.createRecurringEventInstances(
+        req.params.id,
+        {
+          frequency,
+          interval: interval || 1,
+          count,
+          endDate,
+          daysOfWeek
+        },
         req.user.id,
         req.user.role,
         req.ip || req.connection.remoteAddress
       );
 
-      logger.info('Recurring event created successfully', {
-        eventId: event._id,
-        title: event.title,
-        recurrenceRule: event.recurrenceRule,
+      logger.info('Recurring events created successfully', {
+        originalEventId: req.params.id,
+        frequency,
+        instancesCreated: result.instancesCreated,
         createdBy: req.user.id,
         ipAddress: req.ip
       });
 
       res.status(201).json({
         success: true,
-        message: 'Recurring event created successfully',
-        data: { event }
+        message: `Successfully created ${result.instancesCreated} recurring event instances`,
+        data: { 
+          originalEvent: result.originalEvent,
+          recurringEvents: result.recurringEvents,
+          instancesCreated: result.instancesCreated
+        }
       });
     } catch (error) {
-      logger.error('Create recurring event failed', { 
+      logger.error('Create recurring events failed', { 
         error: error.message, 
+        eventId: req.params.id,
         userId: req.user.id,
-        eventData: req.body,
+        recurrenceData: req.body,
         ipAddress: req.ip
       });
       next(error);
@@ -709,6 +747,270 @@ class EventController {
         eventId: req.params.id,
         userId: req.user.id,
         ipAddress: req.ip
+      });
+      next(error);
+    }
+  }
+
+  // POST /api/v1/events/:id/start
+  async startEvent(req, res, next) {
+    try {
+      const event = await EventService.updateEvent(
+        req.params.id,
+        { status: EVENT_STATUS.STARTED },
+        req.user.id,
+        req.user.role,
+        req.ip || req.connection.remoteAddress
+      );
+
+      logger.info('Event started successfully', {
+        eventId: req.params.id,
+        startedBy: req.user.id,
+        ipAddress: req.ip
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Event started successfully',
+        data: { event }
+      });
+    } catch (error) {
+      logger.error('Start event failed', {
+        error: error.message,
+        eventId: req.params.id,
+        userId: req.user.id,
+        ipAddress: req.ip
+      });
+      next(error);
+    }
+  }
+
+  // ===============================
+  // GROUP-BASED PARTICIPANT MANAGEMENT
+  // ===============================
+
+  // GET /api/v1/events/available-groups
+  async getAvailableGroups(req, res, next) {
+    try {
+      const availableGroups = await EventService.getAvailableGroupsForEventCreation(req.user.id);
+
+      res.status(200).json({
+        success: true,
+        data: availableGroups
+      });
+    } catch (error) {
+      logger.error('Get available groups failed', {
+        error: error.message,
+        userId: req.user.id
+      });
+      next(error);
+    }
+  }
+
+  // GET /api/v1/groups/:type/:id/subgroups
+  async getSubgroups(req, res, next) {
+    try {
+      const { type, id } = req.params;
+      
+      // Validate path parameters
+      if (!['department', 'ministry', 'prayer-tribe'].includes(type)) {
+        return next(ApiError.badRequest('Invalid group type'));
+      }
+      
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return next(ApiError.badRequest('Invalid group ID'));
+      }
+      
+      const subgroups = await EventService.getSubgroupsForParent(
+        type,
+        id,
+        req.user.id,
+        req.user.role
+      );
+
+      res.status(200).json({
+        success: true,
+        data: {
+          parentType: type,
+          parentId: id,
+          subgroups
+        }
+      });
+    } catch (error) {
+      logger.error('Get subgroups failed', {
+        error: error.message,
+        parentType: req.params.type,
+        parentId: req.params.id,
+        userId: req.user.id
+      });
+      next(error);
+    }
+  }
+
+  // PUT /api/v1/events/:id/group-selection
+  async updateGroupSelection(req, res, next) {
+    try {
+      const { groupSelection } = req.body;
+      
+      if (!groupSelection) {
+        return next(ApiError.badRequest('Group selection data is required'));
+      }
+
+      const result = await EventService.updateEventGroupSelection(
+        req.params.id,
+        groupSelection,
+        req.user.id,
+        req.user.role,
+        req.ip || req.connection.remoteAddress
+      );
+
+      logger.info('Event group selection updated successfully', {
+        eventId: req.params.id,
+        groupSelection,
+        updatedBy: req.user.id,
+        ipAddress: req.ip
+      });
+
+      res.status(200).json({
+        success: true,
+        message: result.message,
+        data: { event: result.event }
+      });
+    } catch (error) {
+      logger.error('Update group selection failed', {
+        error: error.message,
+        eventId: req.params.id,
+        groupSelection: req.body.groupSelection,
+        userId: req.user.id,
+        ipAddress: req.ip
+      });
+      next(error);
+    }
+  }
+
+  // POST /api/v1/events/:id/populate-participants
+  async populateParticipants(req, res, next) {
+    try {
+      const result = await EventService.populateEventParticipants(
+        req.params.id,
+        req.user.id,
+        req.user.role,
+        req.ip || req.connection.remoteAddress
+      );
+
+      logger.info('Event participants populated successfully', {
+        eventId: req.params.id,
+        participantCount: result.participantCount,
+        populatedBy: req.user.id,
+        ipAddress: req.ip
+      });
+
+      res.status(200).json({
+        success: true,
+        message: result.message,
+        data: { 
+          event: result.event,
+          participantCount: result.participantCount
+        }
+      });
+    } catch (error) {
+      logger.error('Populate participants failed', {
+        error: error.message,
+        eventId: req.params.id,
+        userId: req.user.id,
+        ipAddress: req.ip
+      });
+      next(error);
+    }
+  }
+
+  // POST /api/v1/events/:id/add-group-participants
+  async addGroupParticipants(req, res, next) {
+    try {
+      const { groupSelection } = req.body;
+      
+      if (!groupSelection) {
+        return next(ApiError.badRequest('Group selection data is required'));
+      }
+
+      const result = await EventService.addParticipantsByGroupSelection(
+        req.params.id,
+        groupSelection,
+        req.user.id,
+        req.user.role,
+        req.ip || req.connection.remoteAddress
+      );
+
+      logger.info('Group participants added successfully', {
+        eventId: req.params.id,
+        groupSelection,
+        participantCount: result.participantCount,
+        addedBy: req.user.id,
+        ipAddress: req.ip
+      });
+
+      res.status(200).json({
+        success: true,
+        message: result.message,
+        data: { 
+          event: result.event,
+          participantCount: result.participantCount
+        }
+      });
+    } catch (error) {
+      logger.error('Add group participants failed', {
+        error: error.message,
+        eventId: req.params.id,
+        groupSelection: req.body.groupSelection,
+        userId: req.user.id,
+        ipAddress: req.ip
+      });
+      next(error);
+    }
+  }
+
+  // GET /api/v1/events/:id/group-info
+  async getEventGroupInfo(req, res, next) {
+    try {
+      const event = await EventService.getEventById(
+        req.params.id,
+        req.user.id,
+        req.user.role
+      );
+
+      const availableGroups = await EventService.getAvailableGroupsForEventCreation(req.user.id);
+
+      // Get subgroups for the current group selection if applicable
+      let availableSubgroups = [];
+      if (event.groupSelection.groupId && event.groupSelection.groupType !== 'subgroup') {
+        try {
+          availableSubgroups = await EventService.getSubgroupsForParent(
+            event.groupSelection.groupType,
+            event.groupSelection.groupId,
+            req.user.id,
+            req.user.role
+          );
+        } catch (error) {
+          console.warn('Failed to get subgroups for event group selection:', error.message);
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          eventId: req.params.id,
+          currentGroupSelection: event.groupSelection,
+          participantCount: event.expectedParticipants.length,
+          availableGroups,
+          availableSubgroups,
+          lastPopulatedAt: event.groupSelection.lastPopulatedAt
+        }
+      });
+    } catch (error) {
+      logger.error('Get event group info failed', {
+        error: error.message,
+        eventId: req.params.id,
+        userId: req.user.id
       });
       next(error);
     }

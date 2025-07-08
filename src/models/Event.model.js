@@ -1,13 +1,15 @@
 const mongoose = require('mongoose');
 const { EVENT_TYPES, EVENT_STATUS, TARGET_AUDIENCE } = require('../utils/constants');
 
+// Import related models to ensure they are registered
+require('./Subgroup.model');
+
 // Event Schema
 const eventSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: [true, 'Event title is required'],
+    default: 'Untitled Event',
     trim: true,
-    minlength: [3, 'Event title must be at least 3 characters'],
     maxlength: [200, 'Event title must not exceed 200 characters'],
   },
   
@@ -15,34 +17,23 @@ const eventSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [1000, 'Description must not exceed 1000 characters'],
+    default: '',
   },
   
   eventType: {
     type: String,
     enum: Object.values(EVENT_TYPES),
-    required: [true, 'Event type is required'],
+    default: EVENT_TYPES.MEETING,
   },
   
   startTime: {
     type: Date,
-    required: [true, 'Event start time is required'],
-    validate: {
-      validator: function(value) {
-        return value > new Date();
-      },
-      message: 'Event start time must be in the future',
-    },
+    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
   },
   
   endTime: {
     type: Date,
-    required: [true, 'Event end time is required'],
-    validate: {
-      validator: function(value) {
-        return value > this.startTime;
-      },
-      message: 'Event end time must be after start time',
-    },
+    default: () => new Date(Date.now() + 25 * 60 * 60 * 1000), // Tomorrow + 1 hour
   },
   
   createdBy: {
@@ -63,32 +54,123 @@ const eventSchema = new mongoose.Schema({
     default: null,
   },
   
+  prayerTribeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PrayerTribe',
+    default: null,
+  },
+  
+  assignedClockerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
+  
   targetAudience: {
     type: String,
     enum: Object.values(TARGET_AUDIENCE),
-    required: [true, 'Target audience is required'],
+    default: 'all',
   },
   
-  targetIds: [{
-    type: mongoose.Schema.Types.ObjectId,
-    refPath: 'targetAudience',
-  }],
+  targetIds: {
+    type: [{
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'targetAudience',
+    }],
+    default: [],
+  },
+
+  // Enhanced group-based participant selection
+  groupSelection: {
+    // Primary group selection
+    groupType: {
+      type: String,
+      enum: ['all', 'department', 'ministry', 'prayer-tribe', 'subgroup', 'custom'],
+      default: 'all',
+    },
+    
+    // Primary group ID (department, ministry, or prayer tribe)
+    groupId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      refPath: 'groupSelection.groupType',
+    },
+    
+    // Optional subgroup within the primary group
+    subgroupId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Subgroup',
+      default: null,
+    },
+    
+    // Include all subgroups of the selected group
+    includeSubgroups: {
+      type: Boolean,
+      default: false,
+    },
+    
+    // Auto-populate participants based on group selection
+    autoPopulateParticipants: {
+      type: Boolean,
+      default: true,
+    },
+    
+    // Last time participants were populated from groups
+    lastPopulatedAt: {
+      type: Date,
+      default: null,
+    },
+  },
   
-  expectedParticipants: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-  }],
+  participants: {
+    type: [{
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+      registeredAt: {
+        type: Date,
+        default: Date.now,
+      },
+      registeredBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+      attended: {
+        type: Boolean,
+        default: false,
+      },
+      status: {
+        type: String,
+        enum: ['registered', 'confirmed', 'attended', 'absent', 'excused'],
+        default: 'registered',
+      },
+      notes: String
+    }],
+    default: [],
+  },
   
-  actualParticipants: [{
-    user: {
+  expectedParticipants: {
+    type: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-    },
-    addedAt: {
-      type: Date,
-      default: Date.now,
-    },
-  }],
+    }],
+    default: [],
+  },
+  
+  actualParticipants: {
+    type: [{
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+      addedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    }],
+    default: [],
+  },
   
   isRecurring: {
     type: Boolean,
@@ -99,23 +181,27 @@ const eventSchema = new mongoose.Schema({
     frequency: {
       type: String,
       enum: ['daily', 'weekly', 'bi-weekly', 'monthly'],
+      default: 'weekly',
     },
     interval: {
       type: Number,
       default: 1,
     },
-    daysOfWeek: [{
-      type: String,
-      enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
-    }],
-    endDate: Date,
-    exceptions: [Date], // Dates to skip
-  },
-  
-  parentEventId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Event',
-    default: null, // For recurring events
+    daysOfWeek: {
+      type: [{
+        type: String,
+        enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+      }],
+      default: [],
+    },
+    endDate: {
+      type: Date,
+      default: null,
+    },
+    exceptions: {
+      type: [Date],
+      default: [],
+    },
   },
   
   status: {
@@ -124,46 +210,65 @@ const eventSchema = new mongoose.Schema({
     default: EVENT_STATUS.DRAFT,
   },
   
+  requiresAttendance: {
+    type: Boolean,
+    default: false,
+  },
+  
+  isPublic: {
+    type: Boolean,
+    default: false,
+  },
+  
+  sendReminders: {
+    type: Boolean,
+    default: true,
+  },
+  
+  reminderTimes: {
+    type: [Number],
+    default: [1440, 60], // 24h and 1h before
+  },
+  
   autoCloseAt: {
     type: Date,
     default: null,
   },
   
-  isClosed: {
-    type: Boolean,
-    default: false,
-  },
-  
-  closedAt: {
-    type: Date,
-    default: null,
-  },
-  
-  closedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    default: null,
-  },
-  
   location: {
-    name: String,
-    address: String,
+    name: {
+      type: String,
+      default: '',
+    },
+    address: {
+      type: String,
+      default: '',
+    },
     coordinates: {
-      latitude: Number,
-      longitude: Number,
+      latitude: {
+        type: Number,
+        default: null,
+      },
+      longitude: {
+        type: Number,
+        default: null,
+      },
     },
   },
   
-  notifications: [{
-    time: Date,
-    message: String,
-    sent: {
-      type: Boolean,
-      default: false,
-    },
-    sentAt: Date,
-    recipients: Number,
-  }],
+  notifications: {
+    type: [{
+      time: Date,
+      message: String,
+      sent: {
+        type: Boolean,
+        default: false,
+      },
+      sentAt: Date,
+      recipients: Number,
+    }],
+    default: [],
+  },
   
   settings: {
     requiresRSVP: {
@@ -182,10 +287,10 @@ const eventSchema = new mongoose.Schema({
       type: Boolean,
       default: true,
     },
-    reminderTimes: [{
-      type: Number, // Minutes before event
-      default: [1440, 720, 360, 180, 60, 30], // 24h, 12h, 6h, 3h, 1h, 30min
-    }],
+    reminderTimes: {
+      type: [Number],
+      default: [1440, 60],
+    },
   },
   
   metadata: {
@@ -223,10 +328,32 @@ const eventSchema = new mongoose.Schema({
     type: Map,
     of: mongoose.Schema.Types.Mixed,
   },
+  
+  // Missing fields
+  parentEventId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Event',
+    default: null,
+  },
+  
+  isClosed: {
+    type: Boolean,
+    default: false,
+  },
+  
+  closedAt: {
+    type: Date,
+    default: null,
+  },
+  
+  closedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
 }, {
   timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true },
+  strict: false // Allow any additional fields
 });
 
 // Indexes
@@ -236,6 +363,8 @@ eventSchema.index({ status: 1, startTime: 1 });
 eventSchema.index({ targetAudience: 1, targetIds: 1 });
 eventSchema.index({ eventType: 1 });
 eventSchema.index({ isClosed: 1 });
+eventSchema.index({ assignedClockerId: 1 });
+eventSchema.index({ 'participants.userId': 1 });
 eventSchema.index({ title: 'text', description: 'text' });
 
 // Virtual for duration
@@ -270,9 +399,15 @@ eventSchema.pre('save', async function(next) {
       }
     }
     
+    // Initialize notifications array if not exists
+    if (!this.notifications) {
+      this.notifications = [];
+    }
+    
     // Generate notification times if not set
-    if (this.settings.sendReminders && this.notifications.length === 0) {
-      this.notifications = this.settings.reminderTimes.map(minutes => ({
+    if (this.settings && this.settings.sendReminders && this.notifications.length === 0) {
+      const reminderTimes = this.settings.reminderTimes || [1440, 60];
+      this.notifications = reminderTimes.map(minutes => ({
         time: new Date(this.startTime.getTime() - (minutes * 60 * 1000)),
         message: `Reminder: ${this.title} starts in ${this.formatReminderTime(minutes)}`,
         sent: false,
@@ -355,6 +490,264 @@ eventSchema.methods = {
       id => !id.equals(userId)
     );
     await this.save();
+  },
+
+  // Populate participants based on group selection
+  async populateParticipantsFromGroups() {
+    if (!this.groupSelection.autoPopulateParticipants || this.groupSelection.groupType === 'custom') {
+      return false;
+    }
+
+    const User = mongoose.model('User');
+    const Subgroup = mongoose.model('Subgroup');
+    const Department = mongoose.model('Department');
+    const Ministry = mongoose.model('Ministry');
+    const PrayerTribe = mongoose.model('PrayerTribe');
+    
+    let participants = [];
+
+    try {
+      switch (this.groupSelection.groupType) {
+        case 'all':
+          participants = await User.find({ isActive: true }).select('_id');
+          break;
+
+        case 'department':
+          if (this.groupSelection.subgroupId) {
+            // Get members of specific subgroup within the department
+            const subgroup = await Subgroup.findById(this.groupSelection.subgroupId);
+            if (subgroup && subgroup.parentType === 'department' && subgroup.parentId.equals(this.groupSelection.groupId)) {
+              participants = await subgroup.getMembers();
+            }
+          } else if (this.groupSelection.includeSubgroups) {
+            // Get all members of department and its subgroups
+            const departmentMembers = await User.find({ 
+              departmentIds: this.groupSelection.groupId, 
+              isActive: true 
+            }).select('_id');
+            
+            const subgroups = await Subgroup.findByParent('department', this.groupSelection.groupId);
+            const subgroupMembers = [];
+            for (const subgroup of subgroups) {
+              const members = await subgroup.getMembers();
+              subgroupMembers.push(...members);
+            }
+            
+            participants = [...departmentMembers, ...subgroupMembers];
+          } else {
+            // Get only direct department members (excluding subgroups)
+            participants = await User.find({ 
+              departmentIds: this.groupSelection.groupId, 
+              isActive: true 
+            }).select('_id');
+          }
+          break;
+
+        case 'ministry':
+          if (this.groupSelection.subgroupId) {
+            // Get members of specific subgroup within the ministry
+            const subgroup = await Subgroup.findById(this.groupSelection.subgroupId);
+            if (subgroup && subgroup.parentType === 'ministry' && subgroup.parentId.equals(this.groupSelection.groupId)) {
+              participants = await subgroup.getMembers();
+            }
+          } else if (this.groupSelection.includeSubgroups) {
+            // Get all members of ministry and its subgroups
+            const ministryMembers = await User.find({ 
+              ministryId: this.groupSelection.groupId, 
+              isActive: true 
+            }).select('_id');
+            
+            const subgroups = await Subgroup.findByParent('ministry', this.groupSelection.groupId);
+            const subgroupMembers = [];
+            for (const subgroup of subgroups) {
+              const members = await subgroup.getMembers();
+              subgroupMembers.push(...members);
+            }
+            
+            participants = [...ministryMembers, ...subgroupMembers];
+          } else {
+            // Get only direct ministry members (excluding subgroups)
+            participants = await User.find({ 
+              ministryId: this.groupSelection.groupId, 
+              isActive: true 
+            }).select('_id');
+          }
+          break;
+
+        case 'prayer-tribe':
+          if (this.groupSelection.subgroupId) {
+            // Get members of specific subgroup within the prayer tribe
+            const subgroup = await Subgroup.findById(this.groupSelection.subgroupId);
+            if (subgroup && subgroup.parentType === 'prayer-tribe' && subgroup.parentId.equals(this.groupSelection.groupId)) {
+              participants = await subgroup.getMembers();
+            }
+          } else if (this.groupSelection.includeSubgroups) {
+            // Get all members of prayer tribe and its subgroups
+            const tribeMembers = await User.find({ 
+              prayerTribeId: this.groupSelection.groupId, 
+              isActive: true 
+            }).select('_id');
+            
+            const subgroups = await Subgroup.findByParent('prayer-tribe', this.groupSelection.groupId);
+            const subgroupMembers = [];
+            for (const subgroup of subgroups) {
+              const members = await subgroup.getMembers();
+              subgroupMembers.push(...members);
+            }
+            
+            participants = [...tribeMembers, ...subgroupMembers];
+          } else {
+            // Get only direct prayer tribe members (excluding subgroups)
+            participants = await User.find({ 
+              prayerTribeId: this.groupSelection.groupId, 
+              isActive: true 
+            }).select('_id');
+          }
+          break;
+
+        case 'subgroup':
+          // Get members of the specific subgroup
+          if (this.groupSelection.subgroupId) {
+            const subgroup = await Subgroup.findById(this.groupSelection.subgroupId);
+            if (subgroup) {
+              participants = await subgroup.getMembers();
+            }
+          }
+          break;
+
+        default:
+          return false;
+      }
+
+      // Remove duplicates and convert to ObjectIds
+      const uniqueParticipantIds = [...new Set(participants.map(p => p._id || p).map(id => id.toString()))];
+      
+      // Update expectedParticipants
+      this.expectedParticipants = uniqueParticipantIds.map(id => new mongoose.Types.ObjectId(id));
+      this.groupSelection.lastPopulatedAt = new Date();
+      
+      await this.save();
+      return true;
+
+    } catch (error) {
+      console.error('Error populating participants from groups:', error);
+      return false;
+    }
+  },
+
+  // Get available groups for user based on permissions
+  async getAvailableGroupsForUser(userId) {
+    const User = mongoose.model('User');
+    const Department = mongoose.model('Department');
+    const Ministry = mongoose.model('Ministry');
+    const PrayerTribe = mongoose.model('PrayerTribe');
+    const Subgroup = mongoose.model('Subgroup');
+    
+    const user = await User.findById(userId).populate('departmentIds ministryId prayerTribeId');
+    
+    if (!user) return { departments: [], ministries: [], prayerTribes: [], subgroups: [] };
+
+    const result = {
+      departments: [],
+      ministries: [],
+      prayerTribes: [],
+      subgroups: []
+    };
+
+    // Super admin can access all groups
+    if (user.role === 'super-admin') {
+      result.departments = await Department.find({ isActive: true });
+      result.ministries = await Ministry.find({ isActive: true });
+      result.prayerTribes = await PrayerTribe.find({ isActive: true });
+      result.subgroups = await Subgroup.find({ isActive: true });
+    } else {
+      // Role-based access
+      switch (user.role) {
+        case 'senior-pastor':
+        case 'associate-pastor':
+          result.departments = await Department.find({ isActive: true });
+          result.ministries = await Ministry.find({ isActive: true });
+          result.prayerTribes = await PrayerTribe.find({ isActive: true });
+          result.subgroups = await Subgroup.find({ isActive: true });
+          break;
+
+        case 'pastor':
+        case 'department-leader':
+          // Can access their own departments and related groups
+          if (user.departmentIds.length > 0) {
+            result.departments = await Department.find({ 
+              _id: { $in: user.departmentIds }, 
+              isActive: true 
+            });
+            result.ministries = await Ministry.find({ 
+              departmentId: { $in: user.departmentIds }, 
+              isActive: true 
+            });
+            result.subgroups = await Subgroup.find({ 
+              parentType: 'department',
+              parentId: { $in: user.departmentIds },
+              isActive: true 
+            });
+          }
+          if (user.ministryId) {
+            const ministry = await Ministry.findById(user.ministryId);
+            if (ministry) result.ministries.push(ministry);
+            const ministrySubgroups = await Subgroup.findByParent('ministry', user.ministryId);
+            result.subgroups.push(...ministrySubgroups);
+          }
+          if (user.prayerTribeId) {
+            const tribe = await PrayerTribe.findById(user.prayerTribeId);
+            if (tribe) result.prayerTribes.push(tribe);
+            const tribeSubgroups = await Subgroup.findByParent('prayer-tribe', user.prayerTribeId);
+            result.subgroups.push(...tribeSubgroups);
+          }
+          break;
+
+        case 'clocker':
+          // Can access groups in their clocker scopes
+          user.clockerScopes.forEach(async (scope) => {
+            switch (scope.type) {
+              case 'department':
+                const dept = await Department.findById(scope.targetId);
+                if (dept) result.departments.push(dept);
+                break;
+              case 'ministry':
+                const ministry = await Ministry.findById(scope.targetId);
+                if (ministry) result.ministries.push(ministry);
+                break;
+              case 'prayer-tribe':
+                const tribe = await PrayerTribe.findById(scope.targetId);
+                if (tribe) result.prayerTribes.push(tribe);
+                break;
+              case 'subgroup':
+                const subgroup = await Subgroup.findById(scope.targetId);
+                if (subgroup) result.subgroups.push(subgroup);
+                break;
+            }
+          });
+          break;
+
+        default:
+          // Members can only access their own groups
+          if (user.departmentIds.length > 0) {
+            result.departments = await Department.find({ 
+              _id: { $in: user.departmentIds }, 
+              isActive: true 
+            });
+          }
+          if (user.ministryId) {
+            const ministry = await Ministry.findById(user.ministryId);
+            if (ministry) result.ministries.push(ministry);
+          }
+          if (user.prayerTribeId) {
+            const tribe = await PrayerTribe.findById(user.prayerTribeId);
+            if (tribe) result.prayerTribes.push(tribe);
+          }
+          break;
+      }
+    }
+
+    return result;
   },
   
   // Close event

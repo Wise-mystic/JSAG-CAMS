@@ -2,7 +2,7 @@
 // Custom Joi validation rules and helpers
 
 const Joi = require('joi');
-const { USER_ROLES, EVENT_TYPES, ATTENDANCE_STATUS, DEPARTMENT_CATEGORIES, VALIDATION } = require('./constants');
+const { USER_ROLES, EVENT_TYPES, ATTENDANCE_STATUS, DEPARTMENT_CATEGORIES, TARGET_AUDIENCE, VALIDATION } = require('./constants');
 
 // Custom validation helpers
 const customValidators = {
@@ -284,7 +284,7 @@ const eventSchemas = {
       .max(500)
       .optional(),
     
-    type: Joi.string()
+    eventType: Joi.string()
       .valid(...Object.values(EVENT_TYPES))
       .required(),
     
@@ -297,10 +297,26 @@ const eventSchemas = {
       .min(Joi.ref('startTime'))
       .required(),
     
-    location: Joi.string()
-      .trim()
-      .max(100)
-      .optional(),
+    location: Joi.object({
+      name: Joi.string().max(100).required(),
+      address: Joi.string().max(200).optional(),
+      coordinates: Joi.object({
+        latitude: Joi.number().min(-90).max(90).optional(),
+        longitude: Joi.number().min(-180).max(180).optional()
+      }).optional()
+    }).optional(),
+    
+    targetAudience: Joi.string()
+      .valid(...Object.values(TARGET_AUDIENCE))
+      .required(),
+    
+    targetIds: Joi.array()
+      .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
+      .when('targetAudience', {
+        is: Joi.valid('all'),
+        then: Joi.forbidden(),
+        otherwise: Joi.required()
+      }),
     
     targetDepartments: Joi.array()
       .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
@@ -348,7 +364,35 @@ const eventSchemas = {
     
     sendReminders: Joi.boolean().default(true),
     
-    autoClose: Joi.boolean().default(true)
+    autoClose: Joi.boolean().default(true),
+    
+    groupSelection: Joi.object({
+      groupType: Joi.string()
+        .valid('all', 'department', 'ministry', 'prayer-tribe', 'subgroup', 'custom')
+        .default('all'),
+      
+      groupId: Joi.string()
+        .pattern(/^[0-9a-fA-F]{24}$/)
+        .allow(null)
+        .when('groupType', {
+          is: Joi.valid('department', 'ministry', 'prayer-tribe'),
+          then: Joi.required(),
+          otherwise: Joi.optional()
+        }),
+      
+      subgroupId: Joi.string()
+        .pattern(/^[0-9a-fA-F]{24}$/)
+        .allow(null)
+        .when('groupType', {
+          is: 'subgroup',
+          then: Joi.required(),
+          otherwise: Joi.optional()
+        }),
+      
+      includeSubgroups: Joi.boolean().default(false),
+      
+      autoPopulateParticipants: Joi.boolean().default(false)
+    }).optional()
   }).custom(customValidators.eventDuration),
 
   update: Joi.object({
@@ -372,10 +416,14 @@ const eventSchemas = {
       .min(Joi.ref('startTime'))
       .optional(),
     
-    location: Joi.string()
-      .trim()
-      .max(100)
-      .optional(),
+    location: Joi.object({
+      name: Joi.string().max(100).required(),
+      address: Joi.string().max(200).optional(),
+      coordinates: Joi.object({
+        latitude: Joi.number().min(-90).max(90).optional(),
+        longitude: Joi.number().min(-180).max(180).optional()
+      }).optional()
+    }).optional(),
     
     targetDepartments: Joi.array()
       .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
@@ -393,7 +441,44 @@ const eventSchemas = {
     
     status: Joi.string()
       .valid('draft', 'published', 'active', 'completed', 'cancelled')
+      .optional(),
+      
+    assignedClockerId: Joi.string()
+      .pattern(/^[0-9a-fA-F]{24}$/)
       .optional()
+      .allow(null),
+      
+    tags: Joi.array()
+      .items(Joi.string())
+      .optional(),
+      
+    settings: Joi.object({
+      requiresRSVP: Joi.boolean().optional(),
+      maxParticipants: Joi.number().integer().min(1).optional().allow(null),
+      allowWalkIns: Joi.boolean().optional(),
+      sendReminders: Joi.boolean().optional(),
+      reminderTimes: Joi.array().items(Joi.number().integer().min(1)).optional()
+    }).optional(),
+    
+    groupSelection: Joi.object({
+      groupType: Joi.string()
+        .valid('all', 'department', 'ministry', 'prayer-tribe', 'subgroup', 'custom')
+        .optional(),
+      
+      groupId: Joi.string()
+        .pattern(/^[0-9a-fA-F]{24}$/)
+        .allow(null)
+        .optional(),
+      
+      subgroupId: Joi.string()
+        .pattern(/^[0-9a-fA-F]{24}$/)
+        .allow(null)
+        .optional(),
+      
+      includeSubgroups: Joi.boolean().optional(),
+      
+      autoPopulateParticipants: Joi.boolean().optional()
+    }).optional()
   })
 };
 
@@ -475,6 +560,104 @@ const departmentSchemas = {
   })
 };
 
+// Subgroup validation schemas
+const subgroupSchemas = {
+  create: Joi.object({
+    name: Joi.string()
+      .trim()
+      .min(2)
+      .max(100)
+      .required(),
+    
+    description: Joi.string()
+      .trim()
+      .max(500)
+      .optional(),
+    
+    parentType: Joi.string()
+      .valid('department', 'ministry', 'prayer-tribe')
+      .required(),
+    
+    parentId: Joi.string()
+      .pattern(/^[0-9a-fA-F]{24}$/)
+      .required(),
+    
+    leaderId: Joi.string()
+      .pattern(/^[0-9a-fA-F]{24}$/)
+      .optional(),
+    
+    assistantLeaderIds: Joi.array()
+      .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
+      .optional(),
+    
+    settings: Joi.object({
+      maxMembers: Joi.number().integer().min(1).optional().allow(null),
+      requiresApproval: Joi.boolean().default(false),
+      isPublic: Joi.boolean().default(true),
+      ageRestrictions: Joi.object({
+        minAge: Joi.number().integer().min(0).max(100).optional().allow(null),
+        maxAge: Joi.number().integer().min(0).max(100).optional().allow(null)
+      }).optional(),
+      meetingSchedule: Joi.object({
+        dayOfWeek: Joi.string()
+          .valid('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')
+          .optional(),
+        time: Joi.string().optional(),
+        frequency: Joi.string()
+          .valid('weekly', 'bi-weekly', 'monthly', 'irregular')
+          .default('weekly'),
+        location: Joi.string().max(200).optional()
+      }).optional(),
+      specialRequirements: Joi.array().items(Joi.string().max(100)).optional()
+    }).optional()
+  }),
+
+  update: Joi.object({
+    name: Joi.string()
+      .trim()
+      .min(2)
+      .max(100)
+      .optional(),
+    
+    description: Joi.string()
+      .trim()
+      .max(500)
+      .optional(),
+    
+    leaderId: Joi.string()
+      .pattern(/^[0-9a-fA-F]{24}$/)
+      .allow(null)
+      .optional(),
+    
+    assistantLeaderIds: Joi.array()
+      .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
+      .optional(),
+    
+    isActive: Joi.boolean().optional(),
+    
+    settings: Joi.object({
+      maxMembers: Joi.number().integer().min(1).optional().allow(null),
+      requiresApproval: Joi.boolean().optional(),
+      isPublic: Joi.boolean().optional(),
+      ageRestrictions: Joi.object({
+        minAge: Joi.number().integer().min(0).max(100).optional().allow(null),
+        maxAge: Joi.number().integer().min(0).max(100).optional().allow(null)
+      }).optional(),
+      meetingSchedule: Joi.object({
+        dayOfWeek: Joi.string()
+          .valid('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')
+          .optional(),
+        time: Joi.string().optional(),
+        frequency: Joi.string()
+          .valid('weekly', 'bi-weekly', 'monthly', 'irregular')
+          .optional(),
+        location: Joi.string().max(200).optional()
+      }).optional(),
+      specialRequirements: Joi.array().items(Joi.string().max(100)).optional()
+    }).optional()
+  })
+};
+
 // Attendance validation schemas
 const attendanceSchemas = {
   mark: Joi.object({
@@ -496,7 +679,7 @@ const attendanceSchemas = {
     
     markedBy: Joi.string()
       .pattern(/^[0-9a-fA-F]{24}$/)
-      .required(),
+      .optional(),
     
     reason: Joi.string()
       .trim()
@@ -533,7 +716,43 @@ const attendanceSchemas = {
     
     markedBy: Joi.string()
       .pattern(/^[0-9a-fA-F]{24}$/)
-      .required()
+      .optional()
+  }),
+
+  update: Joi.object({
+    event: Joi.string()
+      .pattern(/^[0-9a-fA-F]{24}$/)
+      .optional(),
+    
+    user: Joi.string()
+      .pattern(/^[0-9a-fA-F]{24}$/)
+      .optional(),
+    
+    status: Joi.string()
+      .valid(...Object.values(ATTENDANCE_STATUS))
+      .optional(),
+    
+    markedAt: Joi.date()
+      .max('now')
+      .optional(),
+    
+    markedBy: Joi.string()
+      .pattern(/^[0-9a-fA-F]{24}$/)
+      .optional(),
+    
+    reason: Joi.string()
+      .trim()
+      .max(200)
+      .when('status', {
+        is: Joi.valid('absent', 'excused'),
+        then: Joi.optional(),
+        otherwise: Joi.forbidden()
+      }),
+    
+    notes: Joi.string()
+      .trim()
+      .max(300)
+      .optional()
   })
 };
 
@@ -967,6 +1186,7 @@ module.exports = {
   userSchemas,
   eventSchemas,
   departmentSchemas,
+  subgroupSchemas,
   attendanceSchemas,
   authSchemas,
   querySchemas,

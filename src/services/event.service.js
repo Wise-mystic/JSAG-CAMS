@@ -6,6 +6,7 @@ const User = require('../models/User.model');
 const Department = require('../models/Department.model');
 const Ministry = require('../models/Ministry.model');
 const PrayerTribe = require('../models/PrayerTribe.model');
+const Subgroup = require('../models/Subgroup.model');
 const Attendance = require('../models/Attendance.model');
 const AuditLog = require('../models/AuditLog.model');
 const { ApiError } = require('../middleware/error.middleware');
@@ -61,7 +62,14 @@ class EventService {
     }
 
     if (type) query.type = type;
-    if (status) query.status = status;
+    if (status) {
+      // Handle both single status and array of statuses
+      if (Array.isArray(status)) {
+        query.status = { $in: status };
+      } else {
+        query.status = status;
+      }
+    }
 
     // Date range filtering
     if (startDate || endDate) {
@@ -156,22 +164,67 @@ class EventService {
     const {
       title,
       description,
-      type,
+      eventType,
       startTime,
       endTime,
-      location,
+      location = {},
       isRecurring = false,
-      recurringPattern,
-      maxParticipants,
+      recurringPattern = {},
+      maxParticipants = null,
       requiresRegistration = false,
       autoCloseAfterHours = 3,
-      departmentId,
-      ministryId,
-      prayerTribeId,
-      assignedClockerId,
+      departmentId = null,
+      ministryId = null,
+      prayerTribeId = null,
+      assignedClockerId = null,
       tags = [],
-      settings = {}
+      settings = {},
+      targetAudience = 'all',
+      targetIds = [],
+      reminderTimes = [1440, 60],
+      requiresAttendance = false,
+      isPublic = false,
+      sendReminders = true,
+      groupSelection = {
+        groupType: 'all',
+        groupId: null,
+        subgroupId: null,
+        includeSubgroups: false,
+        autoPopulateParticipants: false
+      }
     } = eventData;
+
+    // Validate event timing
+    const startDate = new Date(startTime);
+    const endDate = new Date(endTime);
+
+    if (startDate >= endDate) {
+      throw ApiError.badRequest(
+        'End time must be after start time',
+        ERROR_CODES.INVALID_INPUT
+      );
+    }
+
+    if (startDate <= new Date()) {
+      throw ApiError.badRequest(
+        'Event start time must be in the future',
+        ERROR_CODES.INVALID_INPUT
+      );
+    }
+
+    // Check for conflicting events BEFORE creating the event
+    const conflicts = await this.checkEventConflicts(
+      startTime,
+      endTime,
+      { departmentId, ministryId, prayerTribeId }
+    );
+
+    if (conflicts.length > 0) {
+      throw ApiError.conflict(
+        `Event conflicts with existing event: ${conflicts[0].title}`,
+        ERROR_CODES.EVENT_CONFLICT
+      );
+    }
 
     // Validate creator permissions
     if (!this.canCreateEvents(createdByRole)) {
@@ -195,56 +248,24 @@ class EventService {
       }
     }
 
-    // Validate event timing
-    const startDate = new Date(startTime);
-    const endDate = new Date(endTime);
-    
-    if (startDate >= endDate) {
-      throw ApiError.badRequest(
-        'End time must be after start time',
-        ERROR_CODES.INVALID_INPUT
-      );
-    }
-
-    if (startDate < new Date()) {
-      throw ApiError.badRequest(
-        'Cannot create events in the past',
-        ERROR_CODES.INVALID_INPUT
-      );
-    }
-
-    // Validate assigned clocker
-    if (assignedClockerId) {
-      const clocker = await User.findById(assignedClockerId);
-      if (!clocker || clocker.role !== USER_ROLES.CLOCKER) {
-        throw ApiError.badRequest(
-          'Invalid clocker assignment',
-          ERROR_CODES.INVALID_INPUT
+    // Validate group selection permissions
+    if (groupSelection.groupType !== 'all' && groupSelection.groupType !== 'custom') {
+      const availableGroups = await this.getAvailableGroupsForEventCreation(createdBy);
+      if (!this.validateGroupSelectionPermissions(groupSelection, availableGroups, createdByRole)) {
+        throw ApiError.forbidden(
+          'Insufficient permissions for selected group',
+          ERROR_CODES.ACCESS_DENIED
         );
       }
     }
 
-    // Check for conflicting events
-    const conflicts = await this.checkEventConflicts(
-      startTime,
-      endTime,
-      { departmentId, ministryId, prayerTribeId }
-    );
-
-    if (conflicts.length > 0) {
-      throw ApiError.conflict(
-        `Event conflicts with existing event: ${conflicts[0].title}`,
-        ERROR_CODES.EVENT_CONFLICT
-      );
-    }
-
-    // Create the event
+    // Create the event (only after all validations pass)
     const event = new Event({
       title,
       description,
-      type,
-      startTime: startDate,
-      endTime: endDate,
+      eventType,
+      startTime,
+      endTime,
       location,
       isRecurring,
       recurringPattern,
@@ -256,12 +277,45 @@ class EventService {
       prayerTribeId,
       assignedClockerId,
       tags,
-      settings,
+      settings: {
+        ...settings,
+        requiresRSVP: settings.requiresRSVP || false,
+        maxParticipants: settings.maxParticipants || null,
+        allowWalkIns: settings.allowWalkIns ?? true,
+        sendReminders: settings.sendReminders ?? true,
+        reminderTimes: settings.reminderTimes || [1440, 60]
+      },
+      targetAudience,
+      targetIds,
+      reminderTimes,
+      requiresAttendance,
+      isPublic,
+      sendReminders,
       createdBy,
-      status: EVENT_STATUS.UPCOMING
+      expectedParticipants: [],
+      actualParticipants: [],
+      status: EVENT_STATUS.UPCOMING,
+      groupSelection: {
+        groupType: groupSelection.groupType || 'all',
+        groupId: groupSelection.groupId || null,
+        subgroupId: groupSelection.subgroupId || null,
+        includeSubgroups: groupSelection.includeSubgroups || false,
+        autoPopulateParticipants: groupSelection.autoPopulateParticipants || false,
+        lastPopulatedAt: null
+      }
     });
 
     await event.save();
+
+    // Populate participants from group selection if requested
+    if (groupSelection.autoPopulateParticipants && groupSelection.groupType !== 'custom') {
+      try {
+        await event.populateParticipantsFromGroups();
+      } catch (error) {
+        console.warn('Failed to auto-populate participants during event creation:', error.message);
+        // Don't fail event creation if participant population fails
+      }
+    }
 
     // Handle recurring events
     if (isRecurring && recurringPattern) {
@@ -279,11 +333,14 @@ class EventService {
       resourceId: event._id,
       details: {
         title,
-        type,
+        eventType,
         startTime,
         endTime,
         isRecurring,
-        scope: { departmentId, ministryId, prayerTribeId }
+        scope: { departmentId, ministryId, prayerTribeId },
+        groupSelection,
+        participantsAutoPopulated: groupSelection.autoPopulateParticipants,
+        participantCount: event.expectedParticipants.length
       },
       ipAddress,
       result: { success: true }
@@ -306,132 +363,58 @@ class EventService {
       throw ApiError.forbidden('Access denied', ERROR_CODES.ACCESS_DENIED);
     }
 
-    // Prevent modification of completed events
-    if (event.status === EVENT_STATUS.COMPLETED) {
-      throw ApiError.badRequest(
-        'Cannot modify completed events',
-        ERROR_CODES.BUSINESS_RULE_VIOLATION
-      );
-    }
-
-    const {
-      title,
-      description,
-      startTime,
-      endTime,
-      location,
-      maxParticipants,
-      assignedClockerId,
-      tags,
-      settings,
-      status
-    } = updateData;
-
     const updatePayload = {};
     const changes = {};
 
-    // Update basic fields
-    if (title && title !== event.title) {
-      updatePayload.title = title;
-      changes.title = { from: event.title, to: title };
-    }
-
-    if (description !== undefined && description !== event.description) {
-      updatePayload.description = description;
-      changes.description = { from: event.description, to: description };
-    }
-
-    if (location !== undefined && location !== event.location) {
-      updatePayload.location = location;
-      changes.location = { from: event.location, to: location };
-    }
-
-    // Update timing with validation
-    if (startTime || endTime) {
-      const newStartTime = startTime ? new Date(startTime) : event.startTime;
-      const newEndTime = endTime ? new Date(endTime) : event.endTime;
-
-      if (newStartTime >= newEndTime) {
-        throw ApiError.badRequest(
-          'End time must be after start time',
-          ERROR_CODES.INVALID_INPUT
-        );
-      }
-
-      // Check for conflicts if times are changing
-      if (startTime || endTime) {
-        const conflicts = await this.checkEventConflicts(
-          newStartTime,
-          newEndTime,
-          {
-            departmentId: event.departmentId,
-            ministryId: event.ministryId,
-            prayerTribeId: event.prayerTribeId
-          },
-          eventId // Exclude current event
-        );
-
-        if (conflicts.length > 0) {
-          throw ApiError.conflict(
-            `Event conflicts with: ${conflicts[0].title}`,
-            ERROR_CODES.EVENT_CONFLICT
-          );
-        }
-      }
-
-      if (startTime) {
-        updatePayload.startTime = newStartTime;
-        changes.startTime = { from: event.startTime, to: newStartTime };
-      }
-
-      if (endTime) {
-        updatePayload.endTime = newEndTime;
-        changes.endTime = { from: event.endTime, to: newEndTime };
-      }
-    }
-
-    // Update participants limit
-    if (maxParticipants !== undefined && maxParticipants !== event.maxParticipants) {
-      updatePayload.maxParticipants = maxParticipants;
-      changes.maxParticipants = { from: event.maxParticipants, to: maxParticipants };
-    }
-
-    // Update assigned clocker
-    if (assignedClockerId !== undefined && assignedClockerId?.toString() !== event.assignedClockerId?.toString()) {
-      if (assignedClockerId) {
-        const clocker = await User.findById(assignedClockerId);
-        if (!clocker || clocker.role !== USER_ROLES.CLOCKER) {
-          throw ApiError.badRequest('Invalid clocker assignment', ERROR_CODES.INVALID_INPUT);
-        }
-      }
-      updatePayload.assignedClockerId = assignedClockerId;
-      changes.assignedClockerId = { from: event.assignedClockerId, to: assignedClockerId };
-    }
-
-    // Update tags
-    if (tags !== undefined) {
-      updatePayload.tags = tags;
-      changes.tags = { from: event.tags, to: tags };
-    }
-
-    // Update settings
-    if (settings !== undefined) {
-      updatePayload.settings = { ...event.settings, ...settings };
-      changes.settings = { from: event.settings, to: updatePayload.settings };
-    }
+    // Update status with validation using official constants
+    const { status } = updateData;
 
     // Update status with validation
     if (status && status !== event.status) {
-      if (!this.isValidStatusTransition(event.status, status)) {
+      // FIXED: Comprehensive valid transitions matching official EVENT_STATUS
+      const validTransitions = {
+        [EVENT_STATUS.DRAFT]: [EVENT_STATUS.PUBLISHED, EVENT_STATUS.CANCELLED],
+        [EVENT_STATUS.PUBLISHED]: [EVENT_STATUS.UPCOMING, EVENT_STATUS.CANCELLED],
+        [EVENT_STATUS.UPCOMING]: [EVENT_STATUS.STARTED, EVENT_STATUS.ACTIVE, EVENT_STATUS.COMPLETED, EVENT_STATUS.CANCELLED],
+        [EVENT_STATUS.STARTED]: [EVENT_STATUS.ACTIVE, EVENT_STATUS.COMPLETED, EVENT_STATUS.CANCELLED],
+        [EVENT_STATUS.ACTIVE]: [EVENT_STATUS.COMPLETED, EVENT_STATUS.CANCELLED],
+        [EVENT_STATUS.COMPLETED]: [EVENT_STATUS.CLOSED],
+        [EVENT_STATUS.CANCELLED]: [EVENT_STATUS.CLOSED]
+      };
+
+      const allowedTransitions = validTransitions[event.status] || [];
+      if (!allowedTransitions.includes(status)) {
         throw ApiError.badRequest(
-          `Invalid status transition from ${event.status} to ${status}`,
+          `Invalid status transition from ${event.status} to ${status}. Allowed transitions: ${allowedTransitions.join(', ')}`,
           ERROR_CODES.INVALID_STATUS_TRANSITION
         );
       }
+
       updatePayload.status = status;
       changes.status = { from: event.status, to: status };
+
+      // If starting the event, set the start time
+      if (status === EVENT_STATUS.STARTED || status === EVENT_STATUS.ACTIVE) {
+        updatePayload.startedAt = new Date();
+        changes.startedAt = updatePayload.startedAt;
+      }
+
+      // If completing the event, set completion metadata
+      if (status === EVENT_STATUS.COMPLETED) {
+        updatePayload.completedAt = new Date();
+        changes.completedAt = updatePayload.completedAt;
+      }
+
+      // If closing the event, set closure metadata
+      if (status === EVENT_STATUS.CLOSED) {
+        updatePayload.isClosed = true;
+        updatePayload.closedAt = new Date();
+        changes.isClosed = true;
+        changes.closedAt = updatePayload.closedAt;
+      }
     }
 
+    // If no updates are provided, throw an error
     if (Object.keys(updatePayload).length === 0) {
       throw ApiError.badRequest('No valid updates provided', ERROR_CODES.INVALID_INPUT);
     }
@@ -518,16 +501,20 @@ class EventService {
       throw ApiError.notFound('Event not found', ERROR_CODES.EVENT_NOT_FOUND);
     }
 
-    // Check if registration is required
-    if (!event.requiresRegistration) {
-      throw ApiError.badRequest(
-        'This event does not require registration',
-        ERROR_CODES.BUSINESS_RULE_VIOLATION
-      );
-    }
+    // Optional: Check if registration is required (commented out)
+    // if (!event.requiresRegistration) {
+    //   throw ApiError.badRequest(
+    //     'This event does not require registration',
+    //     ERROR_CODES.BUSINESS_RULE_VIOLATION
+    //   );
+    // }
 
-    // Check if event is open for registration
-    if (event.status !== EVENT_STATUS.UPCOMING) {
+    // Check if event is open for registration (allow authorized roles to bypass this check)
+    const User = mongoose.model('User');
+    const registerer = await User.findById(registeredBy);
+    const authorizedRoles = ['super-admin', 'senior-pastor', 'associate-pastor', 'pastor', 'department-leader'];
+    
+    if (event.status !== EVENT_STATUS.UPCOMING && !authorizedRoles.includes(registerer?.role)) {
       throw ApiError.badRequest(
         'Registration is not open for this event',
         ERROR_CODES.BUSINESS_RULE_VIOLATION
@@ -711,6 +698,349 @@ class EventService {
     };
   }
 
+  /**
+   * Get calendar view of events
+   */
+  async getCalendarView(userId, userRole, options = {}) {
+    const { startDate, endDate, view = 'month', includeRecurring = true } = options;
+
+    // Apply scoped access
+    const scopedQuery = this.applyScopedAccess(userId, userRole);
+
+    // Build query for date range
+    const query = {
+      ...scopedQuery,
+      $or: [
+        // Events that start within the range
+        {
+          startTime: {
+            $gte: new Date(startDate),
+            $lte: new Date(endDate)
+          }
+        },
+        // Events that end within the range
+        {
+          endTime: {
+            $gte: new Date(startDate),
+            $lte: new Date(endDate)
+          }
+        },
+        // Events that span the entire range
+        {
+          startTime: { $lte: new Date(startDate) },
+          endTime: { $gte: new Date(endDate) }
+        }
+      ],
+      status: { $nin: [EVENT_STATUS.CANCELLED] }
+    };
+
+    const events = await Event.find(query)
+      .populate('createdBy', 'fullName')
+      .populate('departmentId', 'name')
+      .populate('ministryId', 'name')
+      .populate('assignedClockerId', 'fullName')
+      .sort('startTime');
+
+    // Format events for calendar view
+    const formattedEvents = events.map(event => ({
+      id: event._id,
+      title: event.title,
+      start: event.startTime,
+      end: event.endTime,
+      allDay: false,
+      color: this.getEventColor(event.eventType),
+      extendedProps: {
+        description: event.description,
+        eventType: event.eventType,
+        location: event.location,
+        department: event.departmentId?.name,
+        ministry: event.ministryId?.name,
+        status: event.status,
+        requiresRegistration: event.requiresRegistration,
+        requiresAttendance: event.requiresAttendance,
+        createdBy: event.createdBy?.fullName
+      }
+    }));
+
+    return formattedEvents;
+  }
+
+  /**
+   * Get events for a specific user (events they created or are participating in)
+   */
+  async getUserEvents(userId, options = {}) {
+    const {
+      page = 1,
+      limit = 20,
+      startDate,
+      endDate,
+      role = 'all' // all, organizer, participant
+    } = options;
+
+    const query = {};
+    
+    // Filter by date range if provided
+    if (startDate || endDate) {
+      query.startTime = {};
+      if (startDate) query.startTime.$gte = new Date(startDate);
+      if (endDate) query.startTime.$lte = new Date(endDate);
+    }
+
+    // Filter by user role in the event
+    if (role === 'organizer') {
+      query.createdBy = userId;
+    } else if (role === 'participant') {
+      query['participants.userId'] = userId;
+    } else {
+      // 'all' - both organizer and participant
+      query.$or = [
+        { createdBy: userId },
+        { 'participants.userId': userId },
+        { 'expectedParticipants': userId }
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [events, total] = await Promise.all([
+      Event.find(query)
+        .populate('createdBy', 'fullName role')
+        .populate('departmentId', 'name')
+        .populate('ministryId', 'name')
+        .populate('prayerTribeId', 'name dayOfWeek')
+        .populate('assignedClockerId', 'fullName phoneNumber')
+        .sort('-startTime') // Most recent events first
+        .skip(skip)
+        .limit(limit),
+      Event.countDocuments(query)
+    ]);
+
+    // Add user-specific event data
+    const enhancedEvents = events.map(event => {
+      const eventObj = event.toObject();
+      
+      // Add user's role in this event
+      if (event.createdBy && event.createdBy._id.toString() === userId.toString()) {
+        eventObj.userRole = 'organizer';
+      } else {
+        eventObj.userRole = 'participant';
+      }
+
+      return eventObj;
+    });
+
+    return {
+      events: enhancedEvents,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalEvents: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
+      }
+    };
+  }
+
+  /**
+   * Get event statistics for reporting and analytics
+   */
+  async getEventStatistics(userId, userRole, options = {}) {
+    const {
+      startDate,
+      endDate,
+      groupBy = 'type', // type, status, department
+      includeAttendance = true
+    } = options;
+
+    // Apply scoped access based on user role
+    const scopedQuery = this.applyScopedAccess(userId, userRole);
+    const query = { ...scopedQuery };
+
+    // Apply date range filter
+    if (startDate || endDate) {
+      query.startTime = {};
+      if (startDate) query.startTime.$gte = new Date(startDate);
+      if (endDate) query.startTime.$lte = new Date(endDate);
+    }
+
+    // Base aggregation pipeline
+    const pipeline = [
+      { $match: query }
+    ];
+
+    // Group by the specified field
+    let groupField;
+    switch (groupBy) {
+      case 'type':
+        groupField = '$eventType';
+        break;
+      case 'status':
+        groupField = '$status';
+        break;
+      case 'department':
+        groupField = '$departmentId';
+        break;
+      case 'month':
+        pipeline.push({
+          $addFields: {
+            month: { $month: '$startTime' },
+            year: { $year: '$startTime' }
+          }
+        });
+        groupField = { month: '$month', year: '$year' };
+        break;
+      default:
+        groupField = '$eventType';
+    }
+
+    // Add grouping stage
+    pipeline.push({
+      $group: {
+        _id: groupField,
+        count: { $sum: 1 },
+        events: { $push: { 
+          _id: '$_id', 
+          title: '$title', 
+          startTime: '$startTime', 
+          endTime: '$endTime',
+          status: '$status'
+        }}
+      }
+    });
+
+    // Add lookup for department names if grouping by department
+    if (groupBy === 'department') {
+      pipeline.push({
+        $lookup: {
+          from: 'departments',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'departmentInfo'
+        }
+      });
+      pipeline.push({
+        $addFields: {
+          departmentName: { 
+            $cond: {
+              if: { $gt: [{ $size: '$departmentInfo' }, 0] },
+              then: { $arrayElemAt: ['$departmentInfo.name', 0] },
+              else: 'No Department'
+            }
+          }
+        }
+      });
+    }
+
+    // Add sort stage
+    pipeline.push({ $sort: { count: -1 } });
+
+    // Execute aggregation
+    const stats = await Event.aggregate(pipeline);
+
+    // Format results based on groupBy
+    let formattedStats;
+    switch (groupBy) {
+      case 'type':
+        formattedStats = stats.map(stat => ({
+          type: stat._id || 'unknown',
+          count: stat.count,
+          events: stat.events
+        }));
+        break;
+      case 'status':
+        formattedStats = stats.map(stat => ({
+          status: stat._id || 'unknown',
+          count: stat.count,
+          events: stat.events
+        }));
+        break;
+      case 'department':
+        formattedStats = stats.map(stat => ({
+          departmentId: stat._id,
+          departmentName: stat.departmentName || 'No Department',
+          count: stat.count,
+          events: stat.events
+        }));
+        break;
+      case 'month':
+        formattedStats = stats.map(stat => {
+          const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                             'July', 'August', 'September', 'October', 'November', 'December'];
+          return {
+            month: stat._id.month,
+            year: stat._id.year,
+            monthName: monthNames[stat._id.month - 1],
+            period: `${monthNames[stat._id.month - 1]} ${stat._id.year}`,
+            count: stat.count,
+            events: stat.events
+          };
+        });
+        // Sort by year and month
+        formattedStats.sort((a, b) => {
+          if (a.year !== b.year) return a.year - b.year;
+          return a.month - b.month;
+        });
+        break;
+      default:
+        formattedStats = stats;
+    }
+
+    // Get total events
+    const totalEvents = await Event.countDocuments(query);
+
+    // Get attendance statistics if requested
+    let attendanceStats = null;
+    if (includeAttendance) {
+      const eventIds = await Event.find(query).select('_id');
+      const eventIdList = eventIds.map(e => e._id);
+      
+      if (eventIdList.length > 0) {
+        attendanceStats = await this.getAttendanceStatsForEvents(eventIdList);
+      }
+    }
+
+    return {
+      totalEvents,
+      groupBy,
+      stats: formattedStats,
+      dateRange: {
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null
+      },
+      attendanceStats
+    };
+  }
+
+  /**
+   * Get event color based on type
+   */
+  getEventColor(eventType) {
+    const colors = {
+      meeting: '#4285F4',      // Blue
+      service: '#0F9D58',      // Green
+      prayer: '#9C27B0',       // Purple
+      'bible-study': '#FF9800', // Orange
+      fellowship: '#00BCD4',   // Cyan
+      outreach: '#F44336',     // Red
+      special: '#E91E63',      // Pink
+      youth: '#3F51B5',        // Indigo
+      children: '#FFC107',     // Amber
+      women: '#FF5722',        // Deep Orange
+      men: '#607D8B',          // Blue Grey
+      leadership: '#795548',   // Brown
+      training: '#009688',     // Teal
+      conference: '#673AB7',   // Deep Purple
+      retreat: '#8BC34A',      // Light Green
+      workshop: '#03A9F4',     // Light Blue
+      seminar: '#CDDC39',      // Lime
+      fundraiser: '#FFEB3B',   // Yellow
+      community: '#00E676',    // Green Accent
+      volunteer: '#FF4081',    // Pink Accent
+      other: '#9E9E9E'         // Grey
+    };
+    return colors[eventType] || colors.other;
+  }
+
   // Helper methods
   applyScopedAccess(userId, userRole, scopeId = null, scopeType = null) {
     const query = {};
@@ -781,12 +1111,9 @@ class EventService {
 
   async checkEventConflicts(startTime, endTime, scope, excludeEventId = null) {
     const query = {
-      $or: [
-        {
-          startTime: { $lt: new Date(endTime) },
-          endTime: { $gt: new Date(startTime) }
-        }
-      ],
+      // Check for time overlap
+      startTime: { $lt: new Date(endTime) },
+      endTime: { $gt: new Date(startTime) },
       status: { $nin: [EVENT_STATUS.CANCELLED, EVENT_STATUS.COMPLETED] }
     };
 
@@ -794,73 +1121,170 @@ class EventService {
       query._id = { $ne: excludeEventId };
     }
 
-    // Check conflicts within the same scope
-    const scopeQuery = { $or: [] };
-    if (scope.departmentId) {
-      scopeQuery.$or.push({ departmentId: scope.departmentId });
-    }
-    if (scope.ministryId) {
-      scopeQuery.$or.push({ ministryId: scope.ministryId });
-    }
-    if (scope.prayerTribeId) {
-      scopeQuery.$or.push({ prayerTribeId: scope.prayerTribeId });
+    // Only check conflicts if there's a scope specified
+    if (scope.departmentId || scope.ministryId || scope.prayerTribeId) {
+      const scopeQuery = { $or: [] };
+      
+      if (scope.departmentId) {
+        scopeQuery.$or.push({ departmentId: scope.departmentId });
+      }
+      if (scope.ministryId) {
+        scopeQuery.$or.push({ ministryId: scope.ministryId });
+      }
+      if (scope.prayerTribeId) {
+        scopeQuery.$or.push({ prayerTribeId: scope.prayerTribeId });
+      }
+      
+      // Add scope constraints to the query
+      Object.assign(query, scopeQuery);
+    } else {
+      // If no scope, check for conflicts across all events
+      // This prevents any time overlaps regardless of department/ministry
     }
 
-    if (scopeQuery.$or.length > 0) {
-      query.$and = [query.$or[0], scopeQuery];
-      delete query.$or;
-    }
-
-    return await Event.find(query).select('title startTime endTime');
+    const conflicts = await Event.find(query).select('title startTime endTime');
+    return conflicts;
   }
 
-  async createRecurringEventInstances(baseEvent, pattern) {
-    // Implementation for creating recurring event instances
-    // This would create multiple event instances based on the pattern
+  async createRecurringEventInstances(eventId, pattern, userId, userRole, ipAddress) {
+    // Get the base event
+    const baseEvent = await Event.findById(eventId);
+    if (!baseEvent) {
+      throw ApiError.notFound('Event not found', ERROR_CODES.EVENT_NOT_FOUND);
+    }
+
+    // Check permissions
+    if (!this.canModifyEvent(userId, userRole, baseEvent)) {
+      throw ApiError.forbidden('Access denied', ERROR_CODES.ACCESS_DENIED);
+    }
+
+    const { frequency, interval, count, endDate, daysOfWeek } = pattern;
     const instances = [];
-    const { frequency, interval, endDate, daysOfWeek } = pattern;
-
+    
     let currentDate = new Date(baseEvent.startTime);
-    const endRecurring = new Date(endDate);
-    const duration = baseEvent.endTime - baseEvent.startTime;
+    const duration = baseEvent.endTime.getTime() - baseEvent.startTime.getTime();
+    
+    // Determine end condition
+    let endCondition;
+    let instancesCreated = 0;
+    const maxInstances = count || 52; // Default max of 52 instances (1 year weekly)
+    
+    if (endDate) {
+      endCondition = new Date(endDate);
+    } else if (count) {
+      endCondition = null; // Will use count instead
+    } else {
+      // Default to 1 year from now
+      endCondition = new Date();
+      endCondition.setFullYear(endCondition.getFullYear() + 1);
+    }
 
-    while (currentDate <= endRecurring) {
-      if (frequency === 'weekly' && daysOfWeek) {
-        // Handle weekly recurring events
+    // Create recurring instances
+    while (
+      (endCondition ? currentDate <= endCondition : instancesCreated < maxInstances) && 
+      instancesCreated < maxInstances
+    ) {
+      
+      if (frequency === 'weekly' && daysOfWeek && Array.isArray(daysOfWeek)) {
+        // Handle weekly recurring events with specific days
         for (const dayOfWeek of daysOfWeek) {
-          const instanceDate = new Date(currentDate);
-          instanceDate.setDate(instanceDate.getDate() + (dayOfWeek - instanceDate.getDay()));
+          if (instancesCreated >= maxInstances) break;
           
-          if (instanceDate <= endRecurring && instanceDate > baseEvent.startTime) {
+          const instanceDate = new Date(currentDate);
+          const targetDay = parseInt(dayOfWeek); // 0 = Sunday, 1 = Monday, etc.
+          const currentDay = instanceDate.getDay();
+          const daysToAdd = (targetDay - currentDay + 7) % 7;
+          
+          instanceDate.setDate(instanceDate.getDate() + daysToAdd);
+          
+          if (instanceDate > baseEvent.startTime && 
+              (!endCondition || instanceDate <= endCondition)) {
+            
             const instance = new Event({
               ...baseEvent.toObject(),
               _id: undefined,
               parentEventId: baseEvent._id,
               startTime: instanceDate,
               endTime: new Date(instanceDate.getTime() + duration),
-              isRecurringInstance: true
+              isRecurringInstance: true,
+              createdBy: userId,
+              updatedBy: userId
             });
             
             instances.push(instance);
+            instancesCreated++;
           }
+        }
+      } else {
+        // Handle other frequencies (daily, weekly without specific days, monthly, yearly)
+        if (currentDate > baseEvent.startTime && 
+            (!endCondition || currentDate <= endCondition)) {
+          
+          const instance = new Event({
+            ...baseEvent.toObject(),
+            _id: undefined,
+            parentEventId: baseEvent._id,
+            startTime: new Date(currentDate),
+            endTime: new Date(currentDate.getTime() + duration),
+            isRecurringInstance: true,
+            createdBy: userId,
+            updatedBy: userId
+          });
+          
+          instances.push(instance);
+          instancesCreated++;
         }
       }
       
       // Move to next interval
       if (frequency === 'daily') {
-        currentDate.setDate(currentDate.getDate() + interval);
+        currentDate.setDate(currentDate.getDate() + (interval || 1));
       } else if (frequency === 'weekly') {
-        currentDate.setDate(currentDate.getDate() + (7 * interval));
+        currentDate.setDate(currentDate.getDate() + (7 * (interval || 1)));
       } else if (frequency === 'monthly') {
-        currentDate.setMonth(currentDate.getMonth() + interval);
+        currentDate.setMonth(currentDate.getMonth() + (interval || 1));
+      } else if (frequency === 'yearly') {
+        currentDate.setFullYear(currentDate.getFullYear() + (interval || 1));
+      }
+      
+      // Safety check for count-based recurrence
+      if (count && instancesCreated >= count) {
+        break;
       }
     }
 
+    // Save all instances
+    let savedInstances = [];
     if (instances.length > 0) {
-      await Event.insertMany(instances);
+      savedInstances = await Event.insertMany(instances);
     }
 
-    return instances;
+    // Update the original event to mark it as recurring
+    baseEvent.isRecurring = true;
+    baseEvent.recurrencePattern = pattern;
+    baseEvent.updatedBy = userId;
+    await baseEvent.save();
+
+    // Log action
+    await AuditLog.logAction({
+      userId,
+      action: AUDIT_ACTIONS.EVENT_UPDATE,
+      resource: 'event',
+      resourceId: eventId,
+      details: { 
+        type: 'create_recurring_instances',
+        pattern,
+        instancesCreated: savedInstances.length
+      },
+      result: { success: true },
+      ipAddress
+    });
+
+    return {
+      originalEvent: baseEvent,
+      recurringEvents: savedInstances,
+      instancesCreated: savedInstances.length
+    };
   }
 
   scheduleEventAutoClosure(eventId, endTime, hoursAfter) {
@@ -974,6 +1398,231 @@ class EventService {
     ]);
   }
 
+  /**
+   * Update event group selection and populate participants
+   */
+  async updateEventGroupSelection(eventId, groupSelection, updatedBy, updatedByRole, ipAddress) {
+    const event = await Event.findById(eventId);
+    if (!event) {
+      throw ApiError.notFound('Event not found', ERROR_CODES.EVENT_NOT_FOUND);
+    }
+
+    // Check permissions
+    if (!this.canModifyEvent(updatedBy, updatedByRole, event)) {
+      throw ApiError.forbidden('Access denied', ERROR_CODES.ACCESS_DENIED);
+    }
+
+    // Validate group selection based on user permissions
+    const availableGroups = await event.getAvailableGroupsForUser(updatedBy);
+    if (!this.validateGroupSelectionPermissions(groupSelection, availableGroups, updatedByRole)) {
+      throw ApiError.forbidden('Insufficient permissions for selected group', ERROR_CODES.ACCESS_DENIED);
+    }
+
+    // Update group selection
+    event.groupSelection = {
+      ...event.groupSelection,
+      ...groupSelection
+    };
+
+    await event.save();
+
+    // Populate participants if auto-populate is enabled
+    if (event.groupSelection.autoPopulateParticipants) {
+      await event.populateParticipantsFromGroups();
+    }
+
+    // Log action
+    await AuditLog.logAction({
+      userId: updatedBy,
+      action: AUDIT_ACTIONS.EVENT_UPDATE,
+      resource: 'event',
+      resourceId: eventId,
+      details: { 
+        groupSelection,
+        participantsPopulated: event.groupSelection.autoPopulateParticipants
+      },
+      ipAddress,
+      result: { success: true }
+    });
+
+    return { success: true, message: 'Event group selection updated successfully', event };
+  }
+
+  /**
+   * Get available groups for event creation
+   */
+  async getAvailableGroupsForEventCreation(userId) {
+    const event = new Event(); // Temporary event instance to access the method
+    return await event.getAvailableGroupsForUser(userId);
+  }
+
+  /**
+   * Populate event participants from group selection
+   */
+  async populateEventParticipants(eventId, populatedBy, populatedByRole, ipAddress) {
+    const event = await Event.findById(eventId);
+    if (!event) {
+      throw ApiError.notFound('Event not found', ERROR_CODES.EVENT_NOT_FOUND);
+    }
+
+    // Check permissions
+    if (!this.canModifyEvent(populatedBy, populatedByRole, event)) {
+      throw ApiError.forbidden('Access denied', ERROR_CODES.ACCESS_DENIED);
+    }
+
+    const result = await event.populateParticipantsFromGroups();
+    
+    if (!result) {
+      throw ApiError.badRequest(
+        'Unable to populate participants. Check group selection configuration.',
+        ERROR_CODES.BUSINESS_RULE_VIOLATION
+      );
+    }
+
+    // Log action
+    await AuditLog.logAction({
+      userId: populatedBy,
+      action: AUDIT_ACTIONS.EVENT_PARTICIPANT_ADD,
+      resource: 'event',
+      resourceId: eventId,
+      details: { 
+        method: 'group-population',
+        participantCount: event.expectedParticipants.length,
+        groupSelection: event.groupSelection
+      },
+      ipAddress,
+      result: { success: true }
+    });
+
+    return { 
+      success: true, 
+      message: 'Participants populated successfully',
+      participantCount: event.expectedParticipants.length,
+      event 
+    };
+  }
+
+  /**
+   * Get subgroups for a parent group
+   */
+  async getSubgroupsForParent(parentType, parentId, userId, userRole) {
+    // Check if user has access to the parent group
+    const availableGroups = await this.getAvailableGroupsForEventCreation(userId);
+    
+    let hasAccess = false;
+    switch (parentType) {
+      case 'department':
+        hasAccess = availableGroups.departments.some(dept => dept._id.toString() === parentId.toString());
+        break;
+      case 'ministry':
+        hasAccess = availableGroups.ministries.some(ministry => ministry._id.toString() === parentId.toString());
+        break;
+      case 'prayer-tribe':
+        hasAccess = availableGroups.prayerTribes.some(tribe => tribe._id.toString() === parentId.toString());
+        break;
+      default:
+        return [];
+    }
+
+    if (!hasAccess && !['super-admin', 'senior-pastor', 'associate-pastor'].includes(userRole)) {
+      throw ApiError.forbidden('Access denied to parent group', ERROR_CODES.ACCESS_DENIED);
+    }
+
+    return await Subgroup.findByParent(parentType, parentId);
+  }
+
+  /**
+   * Add participants to event by group selection
+   */
+  async addParticipantsByGroupSelection(eventId, groupSelection, addedBy, addedByRole, ipAddress) {
+    const event = await Event.findById(eventId);
+    if (!event) {
+      throw ApiError.notFound('Event not found', ERROR_CODES.EVENT_NOT_FOUND);
+    }
+
+    // Check permissions
+    if (!this.canModifyEvent(addedBy, addedByRole, event)) {
+      throw ApiError.forbidden('Access denied', ERROR_CODES.ACCESS_DENIED);
+    }
+
+    // Temporarily update group selection for participant population
+    const originalGroupSelection = { ...event.groupSelection };
+    event.groupSelection = {
+      ...event.groupSelection,
+      ...groupSelection,
+      autoPopulateParticipants: true
+    };
+
+    const result = await event.populateParticipantsFromGroups();
+    
+    if (!result) {
+      // Restore original group selection if population failed
+      event.groupSelection = originalGroupSelection;
+      await event.save();
+      throw ApiError.badRequest(
+        'Unable to add participants from group selection',
+        ERROR_CODES.BUSINESS_RULE_VIOLATION
+      );
+    }
+
+    // Log action
+    await AuditLog.logAction({
+      userId: addedBy,
+      action: AUDIT_ACTIONS.EVENT_PARTICIPANT_ADD,
+      resource: 'event',
+      resourceId: eventId,
+      details: { 
+        method: 'group-selection',
+        groupSelection,
+        participantCount: event.expectedParticipants.length
+      },
+      ipAddress,
+      result: { success: true }
+    });
+
+    return { 
+      success: true, 
+      message: 'Participants added successfully',
+      participantCount: event.expectedParticipants.length,
+      event 
+    };
+  }
+
+  /**
+   * Validate group selection permissions
+   */
+  validateGroupSelectionPermissions(groupSelection, availableGroups, userRole) {
+    // Super admin and high-level roles can select any group
+    if (['super-admin', 'senior-pastor', 'associate-pastor'].includes(userRole)) {
+      return true;
+    }
+
+    const { groupType, groupId, subgroupId } = groupSelection;
+
+    switch (groupType) {
+      case 'all':
+        return ['super-admin', 'senior-pastor', 'associate-pastor'].includes(userRole);
+      
+      case 'department':
+        return availableGroups.departments.some(dept => dept._id.toString() === groupId.toString());
+      
+      case 'ministry':
+        return availableGroups.ministries.some(ministry => ministry._id.toString() === groupId.toString());
+      
+      case 'prayer-tribe':
+        return availableGroups.prayerTribes.some(tribe => tribe._id.toString() === groupId.toString());
+      
+      case 'subgroup':
+        return availableGroups.subgroups.some(subgroup => subgroup._id.toString() === (subgroupId || groupId).toString());
+      
+      case 'custom':
+        return true; // Anyone can create custom participant lists
+      
+      default:
+        return false;
+    }
+  }
+
   // Permission checking methods
   canAccessEvent(userId, userRole, event) {
     // High-level roles can access all events
@@ -1042,14 +1691,77 @@ class EventService {
   }
 
   isValidStatusTransition(currentStatus, newStatus) {
+    // FIXED: Use same transition logic as updateEvent method for consistency
     const validTransitions = {
-      [EVENT_STATUS.UPCOMING]: [EVENT_STATUS.ACTIVE, EVENT_STATUS.CANCELLED],
+      [EVENT_STATUS.DRAFT]: [EVENT_STATUS.PUBLISHED, EVENT_STATUS.CANCELLED],
+      [EVENT_STATUS.PUBLISHED]: [EVENT_STATUS.UPCOMING, EVENT_STATUS.CANCELLED],
+      [EVENT_STATUS.UPCOMING]: [EVENT_STATUS.STARTED, EVENT_STATUS.ACTIVE, EVENT_STATUS.COMPLETED, EVENT_STATUS.CANCELLED],
+      [EVENT_STATUS.STARTED]: [EVENT_STATUS.ACTIVE, EVENT_STATUS.COMPLETED, EVENT_STATUS.CANCELLED],
       [EVENT_STATUS.ACTIVE]: [EVENT_STATUS.COMPLETED, EVENT_STATUS.CANCELLED],
-      [EVENT_STATUS.COMPLETED]: [], // No transitions from completed
-      [EVENT_STATUS.CANCELLED]: [] // No transitions from cancelled
+      [EVENT_STATUS.COMPLETED]: [EVENT_STATUS.CLOSED],
+      [EVENT_STATUS.CANCELLED]: [EVENT_STATUS.CLOSED]
     };
 
-    return validTransitions[currentStatus]?.includes(newStatus) || false;
+    const allowedTransitions = validTransitions[currentStatus] || [];
+    return allowedTransitions.includes(newStatus);
+  }
+
+  /**
+   * Cancel an event
+   */
+  async cancelEvent(eventId, reason, cancelledBy, cancelledByRole, ipAddress, notifyParticipants = true) {
+    const event = await Event.findById(eventId);
+    if (!event) {
+      throw ApiError.notFound('Event not found', ERROR_CODES.EVENT_NOT_FOUND);
+    }
+
+    // Check permissions
+    if (!this.canDeleteEvent(cancelledBy, cancelledByRole, event)) {
+      throw ApiError.forbidden('Access denied', ERROR_CODES.ACCESS_DENIED);
+    }
+
+    // Validate status transition
+    if (!this.isValidStatusTransition(event.status, EVENT_STATUS.CANCELLED)) {
+      throw ApiError.badRequest(
+        `Cannot cancel event with current status: ${event.status}`,
+        ERROR_CODES.INVALID_STATUS_TRANSITION
+      );
+    }
+
+    // Update event status
+    event.status = EVENT_STATUS.CANCELLED;
+    event.cancelledAt = new Date();
+    event.cancelledBy = cancelledBy;
+    event.cancellationReason = reason;
+
+    await event.save();
+
+    // Optional: Implement participant notification logic
+    if (notifyParticipants) {
+      // TODO: Implement notification service to inform participants
+      // This could involve sending emails, SMS, or in-app notifications
+    }
+
+    // Log cancellation
+    await AuditLog.logAction({
+      userId: cancelledBy,
+      action: AUDIT_ACTIONS.EVENT_CANCEL,
+      resource: 'event',
+      resourceId: eventId,
+      details: { 
+        title: event.title, 
+        reason,
+        previousStatus: event.status 
+      },
+      ipAddress,
+      result: { success: true }
+    });
+
+    return { 
+      success: true, 
+      message: 'Event cancelled successfully', 
+      event 
+    };
   }
 }
 

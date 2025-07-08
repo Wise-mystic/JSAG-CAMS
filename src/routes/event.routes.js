@@ -31,6 +31,10 @@ const bulkOperationLimiter = rateLimiter({
 // Apply authentication to all event routes
 router.use(authenticate);
 
+// ===============================
+// SPECIFIC ROUTES (must come before parameterized routes)
+// ===============================
+
 // GET /events - List events with filtering and pagination
 router.get('/', 
   validateQuery(querySchemas.pagination),
@@ -138,6 +142,12 @@ router.get('/stats',
   }),
   controller.getEventStats
 );
+
+
+
+// ===============================
+// PARAMETERIZED ROUTES (must come after specific routes)
+// ===============================
 
 // GET /events/:id - Get specific event
 router.get('/:id', 
@@ -358,6 +368,106 @@ router.post('/:id/close',
     checkEventAccess: true
   }),
   controller.closeEvent
+);
+
+// Start an event
+router.post(
+  '/:id/start', 
+  authenticate,
+  authorize({
+    permission: 'event:update',
+    allowedRoles: [
+      USER_ROLES.SUPER_ADMIN, 
+      USER_ROLES.SENIOR_PASTOR, 
+      USER_ROLES.ASSOCIATE_PASTOR, 
+      USER_ROLES.PASTOR
+    ],
+    checkOwnership: true
+  }),
+  controller.startEvent
+);
+
+// GET /events/:id/group-info - Get event group selection info
+router.get('/:id/group-info',
+  authorize({
+    permission: 'events:read',
+    allowedRoles: [
+      USER_ROLES.SUPER_ADMIN, 
+      USER_ROLES.SENIOR_PASTOR, 
+      USER_ROLES.ASSOCIATE_PASTOR, 
+      USER_ROLES.PASTOR, 
+      USER_ROLES.DEPARTMENT_LEADER,
+      USER_ROLES.CLOCKER
+    ],
+    checkEventAccess: true
+  }),
+  controller.getEventGroupInfo
+);
+
+// PUT /events/:id/group-selection - Update event group selection
+router.put('/:id/group-selection',
+  validateRequest(Joi.object({
+    groupSelection: Joi.object({
+      groupType: Joi.string().valid('all', 'department', 'ministry', 'prayer-tribe', 'subgroup', 'custom').required(),
+      groupId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).allow(null).optional(),
+      subgroupId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).allow(null).optional(),
+      includeSubgroups: Joi.boolean().default(false),
+      autoPopulateParticipants: Joi.boolean().default(true)
+    }).required()
+  })),
+  authorize({
+    permission: 'events:update',
+    allowedRoles: [
+      USER_ROLES.SUPER_ADMIN, 
+      USER_ROLES.SENIOR_PASTOR, 
+      USER_ROLES.ASSOCIATE_PASTOR, 
+      USER_ROLES.PASTOR, 
+      USER_ROLES.DEPARTMENT_LEADER
+    ],
+    checkOwnership: true
+  }),
+  controller.updateGroupSelection
+);
+
+// POST /events/:id/populate-participants - Populate participants from group selection
+router.post('/:id/populate-participants',
+  authorize({
+    permission: 'events:update',
+    allowedRoles: [
+      USER_ROLES.SUPER_ADMIN, 
+      USER_ROLES.SENIOR_PASTOR, 
+      USER_ROLES.ASSOCIATE_PASTOR, 
+      USER_ROLES.PASTOR, 
+      USER_ROLES.DEPARTMENT_LEADER
+    ],
+    checkOwnership: true
+  }),
+  controller.populateParticipants
+);
+
+// POST /events/:id/add-group-participants - Add participants by group selection
+router.post('/:id/add-group-participants',
+  validateRequest(Joi.object({
+    groupSelection: Joi.object({
+      groupType: Joi.string().valid('all', 'department', 'ministry', 'prayer-tribe', 'subgroup', 'custom').required(),
+      groupId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).allow(null).optional(),
+      subgroupId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).allow(null).optional(),
+      includeSubgroups: Joi.boolean().default(false),
+      autoPopulateParticipants: Joi.boolean().default(true)
+    }).required()
+  })),
+  authorize({
+    permission: 'events:update',
+    allowedRoles: [
+      USER_ROLES.SUPER_ADMIN, 
+      USER_ROLES.SENIOR_PASTOR, 
+      USER_ROLES.ASSOCIATE_PASTOR, 
+      USER_ROLES.PASTOR, 
+      USER_ROLES.DEPARTMENT_LEADER
+    ],
+    checkOwnership: true
+  }),
+  controller.addGroupParticipants
 );
 
 module.exports = router; 

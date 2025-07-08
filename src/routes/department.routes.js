@@ -57,7 +57,7 @@ router.post('/',
   controller.createDepartment
 );
 
-// GET /departments/stats - Get department statistics
+// GET /departments/stats - Get overall department statistics
 router.get('/stats',
   authorize({
     permission: 'departments:read',
@@ -67,7 +67,7 @@ router.get('/stats',
       USER_ROLES.ASSOCIATE_PASTOR
     ]
   }),
-  controller.getDepartmentStatistics
+  controller.getAllDepartmentStatistics
 );
 
 // GET /departments/:id - Get specific department
@@ -86,6 +86,34 @@ router.get('/:id',
     checkDepartmentAccess: true
   }),
   controller.getDepartment
+);
+
+// GET /departments/:id/stats - Get specific department statistics
+router.get('/:id/stats',
+  authorize({
+    permission: 'departments:read',
+    allowedRoles: [
+      USER_ROLES.SUPER_ADMIN, 
+      USER_ROLES.SENIOR_PASTOR, 
+      USER_ROLES.ASSOCIATE_PASTOR, 
+      USER_ROLES.PASTOR,
+      USER_ROLES.DEPARTMENT_LEADER
+    ],
+    checkDepartmentAccess: true
+  }),
+  controller.getDepartmentStatistics
+);
+
+// GET /departments/:id/can-delete - Check if department can be deleted
+router.get('/:id/can-delete',
+  authorize({
+    permission: 'departments:delete',
+    allowedRoles: [
+      USER_ROLES.SUPER_ADMIN, 
+      USER_ROLES.SENIOR_PASTOR
+    ]
+  }),
+  controller.checkDepartmentDeletion
 );
 
 // PUT /departments/:id - Update department

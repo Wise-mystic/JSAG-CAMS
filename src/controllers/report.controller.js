@@ -495,6 +495,76 @@ class ReportController {
       next(error);
     }
   }
+
+  // GET /api/v1/reports/ministry-performance
+  async getMinistryPerformance(req, res, next) {
+    try {
+      const { 
+        startDate, 
+        endDate, 
+        ministryId,
+        includeComparison = false 
+      } = req.query;
+
+      const filters = {
+        scopedAccess: true,
+        userId: req.user.id,
+        userRole: req.user.role
+      };
+
+      const options = {
+        timeframe: Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)),
+        ministryId,
+        includeComparison: includeComparison === 'true'
+      };
+
+      // For now, return ministry performance as department performance
+      // In a full implementation, you'd have a separate ministry model and analytics
+      const departmentReport = await ReportService.getDepartmentPerformance(filters, options);
+
+      const ministryPerformance = {
+        period: { startDate, endDate },
+        ministries: departmentReport.departments.map(dept => ({
+          ministry: {
+            id: dept.department.id,
+            name: dept.department.name,
+            category: dept.department.category,
+            leaderId: dept.department.leaderId
+          },
+          memberCount: dept.memberCount,
+          attendance: dept.attendance,
+          events: dept.events,
+          performanceScore: dept.performanceScore
+        })),
+        averages: departmentReport.averages,
+        topPerformer: departmentReport.topPerformer,
+        summary: {
+          totalMinistries: departmentReport.departments.length,
+          totalMembers: departmentReport.departments.reduce((sum, dept) => sum + dept.memberCount, 0),
+          avgPerformanceScore: departmentReport.averages.avgPerformanceScore
+        },
+        generatedAt: new Date()
+      };
+
+      logger.info('Ministry performance report generated', {
+        userId: req.user.id,
+        timeframe: options.timeframe,
+        totalMinistries: ministryPerformance.summary.totalMinistries
+      });
+
+      res.status(200).json({
+        success: true,
+        data: ministryPerformance
+      });
+    } catch (error) {
+      logger.error('Get ministry performance failed', {
+        error: error.message,
+        userId: req.user.id,
+        query: req.query
+      });
+      next(error);
+    }
+  }
 }
 
 module.exports = new ReportController(); 

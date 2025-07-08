@@ -11,8 +11,8 @@ const validate = (schema) => {
   return (req, res, next) => {
     const validationOptions = {
       abortEarly: false, // Return all errors, not just the first one
-      allowUnknown: false, // Don't allow unknown keys
-      stripUnknown: true, // Remove unknown keys
+      allowUnknown: true, // Allow unknown keys
+      stripUnknown: false, // Keep unknown keys
     };
     
     const { error, value } = schema.validate(req.body, validationOptions);
@@ -41,8 +41,8 @@ const validateRequest = (schemas) => {
   return (req, res, next) => {
     const validationOptions = {
       abortEarly: false,
-      allowUnknown: false,
-      stripUnknown: true,
+      allowUnknown: true,
+      stripUnknown: false,
     };
 
     // If schemas is a Joi schema object with validate method, use it directly for body validation
@@ -190,7 +190,7 @@ const validateParams = (schema) => {
 // Common validation schemas
 const commonSchemas = {
   // MongoDB ObjectId
-  objectId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).message('Invalid ID format'),
+  objectId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).allow(null).message('Invalid ID format'),
   
   // Phone number (international format)
   phoneNumber: Joi.string()
@@ -347,38 +347,52 @@ const schemas = {
   // Event schemas
   event: {
     create: Joi.object({
-      title: Joi.string().min(3).max(200).required(),
-      description: Joi.string().max(1000).optional(),
-      eventType: Joi.string().valid(...Object.values(require('../utils/constants').EVENT_TYPES)).required(),
-      startTime: Joi.date().iso().greater('now').required(),
-      endTime: Joi.date().iso().greater(Joi.ref('startTime')).required(),
-      departmentId: commonSchemas.objectId.optional(),
-      targetAudience: Joi.string().valid(...Object.values(require('../utils/constants').TARGET_AUDIENCE)).required(),
-      targetIds: Joi.array().items(commonSchemas.objectId).when('targetAudience', {
-        is: 'all',
-        then: Joi.optional(),
-        otherwise: Joi.array().items(commonSchemas.objectId).required().min(1),
-      }),
-      expectedParticipants: Joi.array().items(commonSchemas.objectId).optional(),
-      isRecurring: Joi.boolean().default(false),
-      recurrenceRule: Joi.when('isRecurring', {
-        is: true,
-        then: Joi.object({
-          frequency: Joi.string().valid('daily', 'weekly', 'bi-weekly', 'monthly').required(),
-          interval: Joi.number().integer().min(1).default(1),
-          endDate: Joi.date().iso().greater(Joi.ref('...startTime')).optional(),
-        }).required(),
-        otherwise: Joi.optional(),
-      }),
+      title: Joi.string().max(200).default('Untitled Event'),
+      description: Joi.string().max(1000).default(''),
+      eventType: Joi.string().valid(...Object.values(require('../utils/constants').EVENT_TYPES)).default('meeting'),
+      startTime: Joi.date().iso().default(() => new Date(Date.now() + 24 * 60 * 60 * 1000)),
+      endTime: Joi.date().iso().default(() => new Date(Date.now() + 25 * 60 * 60 * 1000)),
       location: Joi.object({
-        name: Joi.string().optional(),
-        address: Joi.string().optional(),
-      }).optional(),
+        name: Joi.string().default(''),
+        address: Joi.string().default(''),
+        coordinates: Joi.object({
+          latitude: Joi.number().min(-90).max(90).default(null),
+          longitude: Joi.number().min(-180).max(180).default(null),
+        }).default({}),
+      }).default({}),
+      isRecurring: Joi.boolean().default(false),
+      recurringPattern: Joi.object({
+        frequency: Joi.string().valid('daily', 'weekly', 'bi-weekly', 'monthly').default('weekly'),
+        interval: Joi.number().integer().min(1).default(1),
+        daysOfWeek: Joi.array().items(Joi.string().valid('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')).default([]),
+        endDate: Joi.date().iso().optional(),
+        exceptions: Joi.array().items(Joi.date().iso()).default([]),
+      }).default({}),
+      maxParticipants: Joi.number().integer().min(1).default(null).allow(null),
+      requiresRegistration: Joi.boolean().default(false),
+      autoCloseAfterHours: Joi.number().integer().min(1).default(3),
+      departmentId: commonSchemas.objectId.optional().allow(null),
+      ministryId: commonSchemas.objectId.optional().allow(null),
+      prayerTribeId: commonSchemas.objectId.optional().allow(null),
+      assignedClockerId: commonSchemas.objectId.optional().allow(null),
+      requiresAttendance: Joi.boolean().default(false),
+      isPublic: Joi.boolean().default(false),
+      sendReminders: Joi.boolean().default(true),
+      reminderTimes: Joi.array().items(Joi.number().integer().min(1)).default([1440, 60]),
+      tags: Joi.array().items(Joi.string()).default([]),
       settings: Joi.object({
         requiresRSVP: Joi.boolean().default(false),
-        maxParticipants: Joi.number().integer().min(1).optional(),
+        maxParticipants: Joi.number().integer().min(1).default(null).allow(null),
+        allowWalkIns: Joi.boolean().default(true),
         sendReminders: Joi.boolean().default(true),
-      }).optional(),
+        reminderTimes: Joi.array().items(Joi.number().integer().min(1)).default([1440, 60]),
+      }).default({}),
+      targetAudience: Joi.string().valid(...Object.values(require('../utils/constants').TARGET_AUDIENCE)).default('all').optional(),
+      targetIds: Joi.array().items(commonSchemas.objectId).default([]),
+    }).options({ 
+      allowUnknown: true, 
+      stripUnknown: false,
+      presence: 'optional' 
     }),
     
     update: Joi.object({
@@ -389,7 +403,27 @@ const schemas = {
       location: Joi.object({
         name: Joi.string().optional(),
         address: Joi.string().optional(),
+        coordinates: Joi.object({
+          latitude: Joi.number().min(-90).max(90).optional(),
+          longitude: Joi.number().min(-180).max(180).optional()
+        }).optional()
       }).optional(),
+      status: Joi.string().valid(...Object.values(require('../utils/constants').EVENT_STATUS)).optional(),
+      assignedClockerId: commonSchemas.objectId.optional().allow(null),
+      isPublic: Joi.boolean().optional(),
+      sendReminders: Joi.boolean().optional(),
+      maxParticipants: Joi.number().integer().min(1).optional().allow(null),
+      tags: Joi.array().items(Joi.string()).optional(),
+      settings: Joi.object({
+        requiresRSVP: Joi.boolean().optional(),
+        maxParticipants: Joi.number().integer().min(1).optional().allow(null),
+        allowWalkIns: Joi.boolean().optional(),
+        sendReminders: Joi.boolean().optional(),
+        reminderTimes: Joi.array().items(Joi.number().integer().min(1)).optional()
+      }).optional()
+    }).options({
+      allowUnknown: true,
+      stripUnknown: false
     }),
     
     query: Joi.object({
@@ -405,21 +439,49 @@ const schemas = {
   // Attendance schemas
   attendance: {
     mark: Joi.object({
-      eventId: commonSchemas.objectId.required(),
-      userId: commonSchemas.objectId.required(),
+      event: commonSchemas.objectId.required(),
+      user: commonSchemas.objectId.required(),
       status: Joi.string().valid(...Object.values(require('../utils/constants').ATTENDANCE_STATUS)).required(),
       notes: Joi.string().max(500).optional(),
+      location: Joi.object({
+        name: Joi.string().optional(),
+        coordinates: Joi.object({
+          latitude: Joi.number().min(-90).max(90).optional(),
+          longitude: Joi.number().min(-180).max(180).optional()
+        }).optional()
+      }).optional()
     }),
     
     bulkMark: Joi.object({
-      eventId: commonSchemas.objectId.required(),
-      attendanceData: Joi.array().items(
+      event: commonSchemas.objectId.required(),
+      attendanceRecords: Joi.array().items(
         Joi.object({
-          userId: commonSchemas.objectId.required(),
+          user: commonSchemas.objectId.required(),
           status: Joi.string().valid(...Object.values(require('../utils/constants').ATTENDANCE_STATUS)).required(),
           notes: Joi.string().max(500).optional(),
+          location: Joi.object({
+            name: Joi.string().optional(),
+            coordinates: Joi.object({
+              latitude: Joi.number().min(-90).max(90).optional(),
+              longitude: Joi.number().min(-180).max(180).optional()
+            }).optional()
+          }).optional()
         })
       ).min(1).required(),
+    }),
+    
+    update: Joi.object({
+      event: commonSchemas.objectId.optional(),
+      user: commonSchemas.objectId.optional(),
+      status: Joi.string().valid(...Object.values(require('../utils/constants').ATTENDANCE_STATUS)).optional(),
+      notes: Joi.string().max(500).optional(),
+      location: Joi.object({
+        name: Joi.string().optional(),
+        coordinates: Joi.object({
+          latitude: Joi.number().min(-90).max(90).optional(),
+          longitude: Joi.number().min(-180).max(180).optional()
+        }).optional()
+      }).optional()
     }),
   },
   

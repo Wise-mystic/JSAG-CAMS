@@ -5,6 +5,7 @@ const DepartmentService = require('../services/department.service');
 const { validateInput, schemas } = require('../middleware/validation.middleware');
 const { ApiError } = require('../middleware/error.middleware');
 const logger = require('../utils/logger');
+const mongoose = require('mongoose');
 
 class DepartmentController {
   // GET /api/v1/departments
@@ -301,20 +302,35 @@ class DepartmentController {
     }
   }
 
-  // DELETE /api/v1/departments/:id
+  // DELETE /api/v1/departments/:id - Delete department
   async deleteDepartment(req, res, next) {
     try {
       const { id } = req.params;
+      const { force = false } = req.query; // Optional force parameter
       const deletedBy = req.user.id;
       const deletedByRole = req.user.role;
       const ipAddress = req.ip || req.connection.remoteAddress;
 
-      const result = await DepartmentService.deleteDepartment(
-        id,
-        deletedBy,
-        deletedByRole,
-        ipAddress
-      );
+      // Validate department ID
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return next(ApiError.badRequest('Invalid department ID format'));
+      }
+
+      // Check if department can be deleted
+      const canDelete = await DepartmentService.canDeleteDepartmentSafe(id, deletedBy, deletedByRole);
+      
+      if (!canDelete.canDelete && !force) {
+        return res.status(400).json({
+          success: false,
+          message: canDelete.reason,
+          data: {
+            blockers: canDelete.blockers,
+            suggestions: canDelete.suggestions
+          }
+        });
+      }
+
+      await DepartmentService.deleteDepartment(id, deletedBy, deletedByRole, ipAddress);
 
       logger.info('Department deleted successfully', {
         departmentId: id,
@@ -324,7 +340,7 @@ class DepartmentController {
 
       res.status(200).json({
         success: true,
-        message: result.message
+        message: 'Department deleted successfully'
       });
     } catch (error) {
       logger.error('Delete department failed', {
@@ -332,6 +348,35 @@ class DepartmentController {
         departmentId: req.params.id,
         deletedBy: req.user.id,
         ipAddress: req.ip
+      });
+      next(error);
+    }
+  }
+
+  // GET /api/v1/departments/:id/can-delete - Check if department can be deleted
+  async checkDepartmentDeletion(req, res, next) {
+    try {
+      const { id } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return next(ApiError.badRequest('Invalid department ID format'));
+      }
+
+      const result = await DepartmentService.canDeleteDepartmentSafe(
+        id, 
+        req.user.id, 
+        req.user.role
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      logger.error('Check department deletion failed', {
+        error: error.message,
+        departmentId: req.params.id,
+        requestingUserId: req.user.id
       });
       next(error);
     }
@@ -385,10 +430,49 @@ class DepartmentController {
     }
   }
 
-  // GET /api/v1/departments/:id/statistics
+  // GET /api/v1/departments/stats - Get overall department statistics
+  async getAllDepartmentStatistics(req, res, next) {
+    try {
+      const { timeframe = '30d' } = req.query;
+      
+      // Get overall department statistics
+      const stats = await DepartmentService.getAllDepartmentStatistics(
+        req.user.id,
+        req.user.role,
+        { timeframe }
+      );
+
+      res.status(200).json({
+        success: true,
+        data: {
+          statistics: stats,
+          timeframe,
+          generatedAt: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      logger.error('Get all department statistics failed', {
+        error: error.message,
+        requestingUserId: req.user.id,
+        timeframe: req.query.timeframe
+      });
+      next(error);
+    }
+  }
+
+  // GET /api/v1/departments/:id/stats - Get specific department statistics
   async getDepartmentStatistics(req, res, next) {
     try {
       const { id } = req.params;
+
+      // Validate department ID
+      if (!id) {
+        return next(ApiError.badRequest('Department ID is required'));
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return next(ApiError.badRequest('Invalid department ID format'));
+      }
 
       // Get department with statistics
       const department = await DepartmentService.getDepartmentById(
@@ -397,13 +481,19 @@ class DepartmentController {
         req.user.role
       );
 
+      if (!department) {
+        return next(ApiError.notFound('Department not found'));
+      }
+
       res.status(200).json({
         success: true,
         data: {
           departmentId: id,
           name: department.name,
+          category: department.category,
           statistics: department.statistics,
-          subDepartments: department.subDepartments
+          subDepartments: department.subDepartments,
+          generatedAt: new Date().toISOString()
         }
       });
     } catch (error) {

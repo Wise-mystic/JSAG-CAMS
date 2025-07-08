@@ -1,0 +1,15 @@
+{
+  "title": "Test Active Event",
+  "description": "Event for testing attendance - automatically ACTIVE",
+  "eventType": "meeting",
+  "startTime": "2025-01-05T14:00:00.000Z",
+  "endTime": "2025-01-05T17:00:00.000Z",
+  "location": {
+    "name": "Main Hall",
+    "address": "Church Main Building"
+  },
+  "requiresAttendance": true,
+  "isPublic": true,
+  "targetAudience": "all",
+  "sendReminders": false
+} 

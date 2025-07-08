@@ -85,7 +85,7 @@ router.post('/bulk-mark',
 
 // PUT /attendance/:attendanceId - Update attendance record
 router.put('/:attendanceId', 
-  validateRequest(attendanceSchemas.mark),
+  validateRequest(attendanceSchemas.update),
   authorize({
     permission: 'attendance:update',
     allowedRoles: [
@@ -189,6 +189,59 @@ router.get('/export',
     ]
   }),
   controller.exportAttendance
+);
+
+// DEBUG ROUTE - Test attendance record access
+router.get('/debug/:attendanceId',
+  authorize({
+    permission: 'attendance:read',
+    allowedRoles: [
+      USER_ROLES.SUPER_ADMIN, 
+      USER_ROLES.SENIOR_PASTOR, 
+      USER_ROLES.ASSOCIATE_PASTOR
+    ]
+  }),
+  controller.debugAttendance
+);
+
+// HEALTH CHECK ROUTE - Test database connection
+router.get('/health',
+  authenticate,
+  async (req, res) => {
+    try {
+      const mongoose = require('mongoose');
+      const Attendance = require('../models/Attendance.model');
+      
+      // Test database connection
+      const dbState = mongoose.connection.readyState;
+      const dbName = mongoose.connection.name;
+      
+      // Test a simple query
+      const count = await Attendance.countDocuments();
+      
+      res.status(200).json({
+        success: true,
+        health: {
+          database: {
+            connected: dbState === 1,
+            state: dbState,
+            name: dbName,
+            states: { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' }
+          },
+          attendanceCount: count,
+          timestamp: new Date()
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        health: {
+          database: { connected: false, error: error.message }
+        }
+      });
+    }
+  }
 );
 
 module.exports = router; 

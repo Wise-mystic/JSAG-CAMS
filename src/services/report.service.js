@@ -234,7 +234,7 @@ class ReportService {
     }
 
     // Get event statistics
-    const eventStats = await this.getEventStatistics(eventQuery);
+    const eventStats = await EventService.getEventStatistics(filters.userId, filters.userRole, { query: eventQuery });
 
     // Get attendance analytics for events
     const attendanceAnalytics = await this.getEventAttendanceAnalytics(eventQuery, startDate, endDate);
@@ -655,12 +655,12 @@ class ReportService {
     });
 
     // Calculate attendance stats
-    const attendanceStats = await AttendanceService.calculateDepartmentAttendanceStats(memberIds, {
+    const attendanceStats = await DepartmentService.calculateDepartmentAttendanceStats(memberIds, {
       createdAt: { $gte: startDate, $lte: endDate }
     });
 
     // Calculate event stats
-    const eventStats = await EventService.calculateDepartmentEventStats(departmentId, {
+    const eventStats = await DepartmentService.calculateDepartmentEventStats(departmentId, {
       startTime: { $gte: startDate, $lte: endDate }
     });
 
@@ -980,6 +980,518 @@ class ReportService {
     return {
       attendance: attendanceTrend
     };
+  }
+
+  /**
+   * Get member growth analytics
+   */
+  async getMemberGrowthAnalytics(memberQuery, startDate, endDate) {
+    // Member growth over time
+    const memberGrowth = await User.aggregate([
+      {
+        $match: {
+          ...memberQuery,
+          createdAt: { $gte: startDate, $lte: endDate }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' },
+            week: { $week: '$createdAt' }
+          },
+          newMembers: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1, '_id.week': 1 } }
+    ]);
+
+    // Calculate growth rates
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    const [newMembers30Days, newMembers60Days, totalMembers] = await Promise.all([
+      User.countDocuments({ ...memberQuery, createdAt: { $gte: thirtyDaysAgo } }),
+      User.countDocuments({ ...memberQuery, createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } }),
+      User.countDocuments(memberQuery)
+    ]);
+
+    // Calculate growth rate
+    const growthRate = newMembers60Days > 0 
+      ? ((newMembers30Days - newMembers60Days) / newMembers60Days * 100)
+      : (newMembers30Days > 0 ? 100 : 0);
+
+    return {
+      newMembers30Days,
+      newMembers60Days,
+      totalMembers,
+      growthRate: parseFloat(growthRate.toFixed(2)),
+      monthlyGrowth: memberGrowth,
+      summary: {
+        trend: growthRate > 0 ? 'increasing' : growthRate < 0 ? 'decreasing' : 'stable',
+        percentageChange: Math.abs(growthRate)
+      }
+    };
+  }
+
+  /**
+   * Get detailed attendance records
+   */
+  async getDetailedAttendanceRecords(matchConditions, options = {}) {
+    const { limit = 1000, page = 1, includeUserDetails = true, includeEventDetails = true } = options;
+    const skip = (page - 1) * limit;
+
+    const pipeline = [
+      { $match: matchConditions },
+      { $sort: { markedAt: -1 } },
+      { $skip: skip },
+      { $limit: limit }
+    ];
+
+    // Add user details if requested
+    if (includeUserDetails) {
+      pipeline.push(
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'userId',
+            foreignField: '_id',
+            as: 'user'
+          }
+        },
+        { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } }
+      );
+    }
+
+    // Add event details if requested
+    if (includeEventDetails) {
+      pipeline.push(
+        {
+          $lookup: {
+            from: 'events',
+            localField: 'eventId',
+            foreignField: '_id',
+            as: 'event'
+          }
+        },
+        { $unwind: { path: '$event', preserveNullAndEmptyArrays: true } }
+      );
+    }
+
+    // Project necessary fields
+    pipeline.push({
+      $project: {
+        _id: 1,
+        status: 1,
+        markedAt: 1,
+        notes: 1,
+        location: 1,
+        ...(includeUserDetails && {
+          'user._id': 1,
+          'user.fullName': 1,
+          'user.email': 1,
+          'user.role': 1,
+          'user.departmentId': 1
+        }),
+        ...(includeEventDetails && {
+          'event._id': 1,
+          'event.title': 1,
+          'event.eventType': 1,
+          'event.startTime': 1,
+          'event.endTime': 1,
+          'event.departmentId': 1
+        })
+      }
+    });
+
+    const [records, totalCount] = await Promise.all([
+      Attendance.aggregate(pipeline),
+      Attendance.countDocuments(matchConditions)
+    ]);
+
+         return {
+       records,
+       pagination: {
+         total: totalCount,
+         page,
+         limit,
+         pages: Math.ceil(totalCount / limit),
+         hasNext: page * limit < totalCount,
+         hasPrev: page > 1
+       }
+     };
+   }
+
+  /**
+   * Get member engagement analytics
+   */
+  async getMemberEngagementAnalytics(memberQuery, startDate, endDate) {
+    const engagementData = await User.aggregate([
+      { $match: memberQuery },
+      {
+        $lookup: {
+          from: 'attendances',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'attendances'
+        }
+      },
+      {
+        $addFields: {
+          totalAttendance: { $size: '$attendances' },
+          recentAttendance: {
+            $size: {
+              $filter: {
+                input: '$attendances',
+                cond: { 
+                  $and: [
+                    { $gte: ['$$this.markedAt', startDate] },
+                    { $lte: ['$$this.markedAt', endDate] }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          highlyEngaged: { $sum: { $cond: [{ $gte: ['$recentAttendance', 8] }, 1, 0] } },
+          moderatelyEngaged: { $sum: { $cond: [{ $and: [{ $gte: ['$recentAttendance', 4] }, { $lt: ['$recentAttendance', 8] }] }, 1, 0] } },
+          lowEngaged: { $sum: { $cond: [{ $and: [{ $gt: ['$recentAttendance', 0] }, { $lt: ['$recentAttendance', 4] }] }, 1, 0] } },
+          notEngaged: { $sum: { $cond: [{ $eq: ['$recentAttendance', 0] }, 1, 0] } },
+          avgAttendance: { $avg: '$recentAttendance' }
+        }
+      }
+    ]);
+
+    const result = engagementData[0] || { highlyEngaged: 0, moderatelyEngaged: 0, lowEngaged: 0, notEngaged: 0, avgAttendance: 0 };
+    
+    return {
+      categories: {
+        highly: result.highlyEngaged,
+        moderate: result.moderatelyEngaged,
+        low: result.lowEngaged,
+        none: result.notEngaged
+      },
+      averageAttendance: parseFloat((result.avgAttendance || 0).toFixed(2)),
+      totalMembers: result.highlyEngaged + result.moderatelyEngaged + result.lowEngaged + result.notEngaged
+    };
+  }
+
+  /**
+   * Get role distribution analytics
+   */
+  async getRoleDistributionAnalytics(memberQuery) {
+    return await User.aggregate([
+      { $match: memberQuery },
+      {
+        $group: {
+          _id: '$role',
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+  }
+
+  /**
+   * Get department distribution analytics
+   */
+  async getDepartmentDistributionAnalytics(memberQuery) {
+    return await User.aggregate([
+      { $match: memberQuery },
+      {
+        $lookup: {
+          from: 'departments',
+          localField: 'departmentId',
+          foreignField: '_id',
+          as: 'department'
+        }
+      },
+      { $unwind: { path: '$department', preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: {
+            departmentId: '$department._id',
+            departmentName: '$department.name'
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+  }
+
+  /**
+   * Get member attendance behavior analysis
+   */
+  async getMemberAttendanceBehavior(memberQuery, startDate, endDate) {
+    const behaviorData = await User.aggregate([
+      { $match: memberQuery },
+      {
+        $lookup: {
+          from: 'attendances',
+          let: { userId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$userId', '$$userId'] },
+                markedAt: { $gte: startDate, $lte: endDate }
+              }
+            }
+          ],
+          as: 'attendances'
+        }
+      },
+      {
+        $addFields: {
+          attendanceCount: { $size: '$attendances' },
+          presentCount: {
+            $size: {
+              $filter: {
+                input: '$attendances',
+                cond: { $eq: ['$$this.status', ATTENDANCE_STATUS.PRESENT] }
+              }
+            }
+          },
+          lateCount: {
+            $size: {
+              $filter: {
+                input: '$attendances',
+                cond: { $eq: ['$$this.status', ATTENDANCE_STATUS.LATE] }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          regularAttendees: { $sum: { $cond: [{ $gte: ['$attendanceCount', 8] }, 1, 0] } },
+          occasionalAttendees: { $sum: { $cond: [{ $and: [{ $gte: ['$attendanceCount', 3] }, { $lt: ['$attendanceCount', 8] }] }, 1, 0] } },
+          rareAttendees: { $sum: { $cond: [{ $and: [{ $gt: ['$attendanceCount', 0] }, { $lt: ['$attendanceCount', 3] }] }, 1, 0] } },
+          nonAttendees: { $sum: { $cond: [{ $eq: ['$attendanceCount', 0] }, 1, 0] } },
+          avgAttendancePerMember: { $avg: '$attendanceCount' },
+          punctualityRate: {
+            $avg: {
+              $cond: [
+                { $gt: [{ $add: ['$presentCount', '$lateCount'] }, 0] },
+                { $multiply: [{ $divide: ['$presentCount', { $add: ['$presentCount', '$lateCount'] }] }, 100] },
+                0
+              ]
+            }
+          }
+        }
+      }
+    ]);
+
+    const result = behaviorData[0] || {};
+    
+    return {
+      patterns: {
+        regular: result.regularAttendees || 0,
+        occasional: result.occasionalAttendees || 0,
+        rare: result.rareAttendees || 0,
+        none: result.nonAttendees || 0
+      },
+      averageAttendancePerMember: parseFloat((result.avgAttendancePerMember || 0).toFixed(2)),
+      punctualityRate: parseFloat((result.punctualityRate || 0).toFixed(2))
+    };
+  }
+
+  /**
+   * Get event attendance analytics
+   */
+  async getEventAttendanceAnalytics(eventQuery, startDate, endDate) {
+    const attendanceData = await Event.aggregate([
+      { $match: eventQuery },
+      {
+        $lookup: {
+          from: 'attendances',
+          localField: '_id',
+          foreignField: 'eventId',
+          as: 'attendances'
+        }
+      },
+      {
+        $addFields: {
+          totalAttendance: { $size: '$attendances' },
+          presentCount: {
+            $size: {
+              $filter: {
+                input: '$attendances',
+                cond: { $eq: ['$$this.status', ATTENDANCE_STATUS.PRESENT] }
+              }
+            }
+          },
+          lateCount: {
+            $size: {
+              $filter: {
+                input: '$attendances',
+                cond: { $eq: ['$$this.status', ATTENDANCE_STATUS.LATE] }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalEvents: { $sum: 1 },
+          avgAttendancePerEvent: { $avg: '$totalAttendance' },
+          avgAttendanceRate: {
+            $avg: {
+              $cond: [
+                { $gt: ['$totalAttendance', 0] },
+                { $multiply: [{ $divide: [{ $add: ['$presentCount', '$lateCount'] }, '$totalAttendance'] }, 100] },
+                0
+              ]
+            }
+          },
+          highAttendanceEvents: { 
+            $sum: { 
+              $cond: [
+                { 
+                  $gt: [
+                    { 
+                      $cond: [
+                        { $gt: ['$totalAttendance', 0] },
+                        { $multiply: [{ $divide: [{ $add: ['$presentCount', '$lateCount'] }, '$totalAttendance'] }, 100] },
+                        0
+                      ]
+                    }, 
+                    80
+                  ] 
+                }, 
+                1, 
+                0
+              ] 
+            }
+          }
+        }
+      }
+    ]);
+
+    const result = attendanceData[0] || {};
+    
+    return {
+      totalEvents: result.totalEvents || 0,
+      averageAttendancePerEvent: parseFloat((result.avgAttendancePerEvent || 0).toFixed(2)),
+      averageAttendanceRate: parseFloat((result.avgAttendanceRate || 0).toFixed(2)),
+      highPerformingEvents: result.highAttendanceEvents || 0
+    };
+  }
+
+  /**
+   * Get event performance metrics
+   */
+  async getEventPerformanceMetrics(eventQuery) {
+    return await Event.aggregate([
+      { $match: eventQuery },
+      {
+        $group: {
+          _id: '$eventType',
+          totalEvents: { $sum: 1 },
+          completedEvents: { $sum: { $cond: [{ $eq: ['$status', EVENT_STATUS.COMPLETED] }, 1, 0] } },
+          cancelledEvents: { $sum: { $cond: [{ $eq: ['$status', EVENT_STATUS.CANCELLED] }, 1, 0] } }
+        }
+      },
+      {
+        $addFields: {
+          completionRate: {
+            $cond: [
+              { $gt: ['$totalEvents', 0] },
+              { $multiply: [{ $divide: ['$completedEvents', '$totalEvents'] }, 100] },
+              0
+            ]
+          }
+        }
+      },
+      { $sort: { totalEvents: -1 } }
+    ]);
+  }
+
+  /**
+   * Get popular events
+   */
+  async getPopularEvents(eventQuery, limit = 10) {
+    return await Event.aggregate([
+      { $match: eventQuery },
+      {
+        $lookup: {
+          from: 'attendances',
+          localField: '_id',
+          foreignField: 'eventId',
+          as: 'attendances'
+        }
+      },
+      {
+        $addFields: {
+          attendanceCount: { $size: '$attendances' }
+        }
+      },
+      { $sort: { attendanceCount: -1 } },
+      { $limit: limit },
+      {
+        $project: {
+          title: 1,
+          eventType: 1,
+          startTime: 1,
+          attendanceCount: 1,
+          departmentId: 1
+        }
+      }
+    ]);
+  }
+
+  /**
+   * Get event creation trends
+   */
+  async getEventCreationTrends(eventQuery, startDate, endDate) {
+    return await Event.aggregate([
+      { $match: { ...eventQuery, createdAt: { $gte: startDate, $lte: endDate } } },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' },
+            week: { $week: '$createdAt' }
+          },
+          eventsCreated: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1, '_id.week': 1 } }
+    ]);
+  }
+
+  /**
+   * Get upcoming events summary
+   */
+  async getUpcomingEventsSummary(filters) {
+    const query = {
+      startTime: { $gte: new Date() },
+      status: { $in: [EVENT_STATUS.UPCOMING, EVENT_STATUS.ACTIVE] }
+    };
+
+    // Apply scoped access
+    if (filters.scopedAccess) {
+      const scopedQuery = await this.applyScopedAccess(filters.userId, filters.userRole);
+      if (scopedQuery.eventId) {
+        query._id = scopedQuery.eventId;
+      }
+    }
+
+    return await Event.find(query)
+      .sort({ startTime: 1 })
+      .limit(20)
+      .select('title eventType startTime endTime departmentId status')
+      .populate('departmentId', 'name');
   }
 }
 

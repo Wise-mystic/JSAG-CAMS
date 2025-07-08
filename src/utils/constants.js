@@ -41,6 +41,7 @@ const EVENT_STATUS = {
   DRAFT: 'draft',
   PUBLISHED: 'published',
   UPCOMING: 'upcoming',
+  STARTED: 'started',
   ACTIVE: 'active',
   COMPLETED: 'completed',
   CANCELLED: 'cancelled',
@@ -122,6 +123,8 @@ const AUDIT_ACTIONS = {
   EVENT_DELETE: 'event.delete',
   EVENT_CANCEL: 'event.cancel',
   EVENT_COMPLETE: 'event.complete',
+  EVENT_REGISTER: 'event.register',
+  EVENT_UNREGISTER: 'event.unregister',
   EVENT_PARTICIPANT_ADD: 'event.participant_add',
   EVENT_PARTICIPANT_REMOVE: 'event.participant_remove',
   
@@ -144,6 +147,13 @@ const AUDIT_ACTIONS = {
   PRAYER_TRIBE_DELETE: 'prayer_tribe.delete',
   PRAYER_TRIBE_MEMBER_ADD: 'prayer_tribe.member_add',
   PRAYER_TRIBE_MEMBER_REMOVE: 'prayer_tribe.member_remove',
+
+  // Subgroup actions
+  SUBGROUP_CREATE: 'subgroup.create',
+  SUBGROUP_UPDATE: 'subgroup.update',
+  SUBGROUP_DELETE: 'subgroup.delete',
+  SUBGROUP_MEMBER_ADD: 'subgroup.member_add',
+  SUBGROUP_MEMBER_REMOVE: 'subgroup.member_remove',
   
   // System actions
   SYSTEM_BACKUP: 'system.backup',

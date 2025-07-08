@@ -192,6 +192,28 @@ router.get('/ministry-performance',
       USER_ROLES.PASTOR
     ]
   }),
+  controller.getMinistryPerformance
+);
+
+// GET /reports/compare - Compare performance between periods
+router.get('/compare',
+  validateQuery(Joi.object({
+    type: Joi.string().valid('departments', 'events', 'members').default('departments'),
+    period1Start: Joi.date().required(),
+    period1End: Joi.date().min(Joi.ref('period1Start')).required(),
+    period2Start: Joi.date().required(),
+    period2End: Joi.date().min(Joi.ref('period2Start')).required(),
+    metric: Joi.string().valid('attendance', 'events', 'growth').default('attendance')
+  })),
+  authorize({
+    permission: 'analytics:read',
+    allowedRoles: [
+      USER_ROLES.SUPER_ADMIN, 
+      USER_ROLES.SENIOR_PASTOR, 
+      USER_ROLES.ASSOCIATE_PASTOR, 
+      USER_ROLES.PASTOR
+    ]
+  }),
   controller.comparePerformance
 );
 

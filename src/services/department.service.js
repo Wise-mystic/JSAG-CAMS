@@ -2,6 +2,7 @@ const Department = require('../models/Department.model');
 const User = require('../models/User.model');
 const AuditLog = require('../models/AuditLog.model');
 const { ApiError } = require('../middleware/error.middleware');
+const logger = require('../utils/logger');
 const { 
   USER_ROLES, 
   DEPARTMENT_CATEGORIES,
@@ -93,37 +94,55 @@ class DepartmentService {
    * Get department by ID with full details
    */
   async getDepartmentById(departmentId, requestingUserId, requestingUserRole) {
+    // Validate input parameters
+    if (!departmentId) {
+      throw ApiError.badRequest('Department ID is required', ERROR_CODES.INVALID_INPUT);
+    }
+
     if (!mongoose.Types.ObjectId.isValid(departmentId)) {
-      throw ApiError.badRequest('Invalid department ID', ERROR_CODES.INVALID_INPUT);
+      throw ApiError.badRequest('Invalid department ID format', ERROR_CODES.INVALID_INPUT);
     }
 
-    const department = await Department.findById(departmentId)
-      .populate('leaderId', 'fullName phoneNumber role email')
-      .populate('parentDepartmentId', 'name category leaderId');
+    try {
+      const department = await Department.findById(departmentId)
+        .populate('leaderId', 'fullName phoneNumber role email')
+        .populate('parentDepartmentId', 'name category leaderId');
 
-    if (!department) {
-      throw ApiError.notFound('Department not found', ERROR_CODES.DEPARTMENT_NOT_FOUND);
+      if (!department) {
+        throw ApiError.notFound('Department not found', ERROR_CODES.DEPARTMENT_NOT_FOUND);
+      }
+
+      // Check access permissions
+      if (!this.canAccessDepartment(requestingUserId, requestingUserRole, department)) {
+        throw ApiError.forbidden('Access denied', ERROR_CODES.ACCESS_DENIED);
+      }
+
+      // Get department statistics
+      const stats = await this.getDepartmentStatistics(departmentId);
+      
+      // Get sub-departments
+      const subDepartments = await Department.find({ 
+        parentDepartmentId: departmentId,
+        isActive: true 
+      }).populate('leaderId', 'fullName role');
+
+      return {
+        ...department.toObject(),
+        statistics: stats,
+        subDepartments
+      };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      
+      logger.error('Failed to get department by ID', {
+        error: error.message,
+        departmentId,
+        requestingUserId
+      });
+      throw ApiError.internalError('Failed to retrieve department information');
     }
-
-    // Check access permissions
-    if (!this.canAccessDepartment(requestingUserId, requestingUserRole, department)) {
-      throw ApiError.forbidden('Access denied', ERROR_CODES.ACCESS_DENIED);
-    }
-
-    // Get department statistics
-    const stats = await this.getDepartmentStatistics(departmentId);
-    
-    // Get sub-departments
-    const subDepartments = await Department.find({ 
-      parentDepartmentId: departmentId,
-      isActive: true 
-    }).populate('leaderId', 'fullName role');
-
-    return {
-      ...department.toObject(),
-      statistics: stats,
-      subDepartments
-    };
   }
 
   /**
@@ -568,7 +587,93 @@ class DepartmentService {
   }
 
   /**
-   * Delete/Deactivate department
+   * Check if department can be safely deleted with detailed feedback
+   */
+  async canDeleteDepartmentSafe(departmentId, requestingUserId, requestingUserRole) {
+    if (!mongoose.Types.ObjectId.isValid(departmentId)) {
+      throw ApiError.badRequest('Invalid department ID format', ERROR_CODES.INVALID_INPUT);
+    }
+
+    const department = await Department.findById(departmentId);
+    if (!department) {
+      throw ApiError.notFound('Department not found', ERROR_CODES.DEPARTMENT_NOT_FOUND);
+    }
+
+    // Check permissions
+    if (!this.canDeleteDepartment(requestingUserId, requestingUserRole, department)) {
+      throw ApiError.forbidden('Access denied', ERROR_CODES.ACCESS_DENIED);
+    }
+
+    const blockers = [];
+    const suggestions = [];
+
+    // Check for active members
+    const memberCount = await User.countDocuments({
+      departmentIds: departmentId,
+      isActive: true
+    });
+
+    if (memberCount > 0) {
+      blockers.push({
+        type: 'active_members',
+        count: memberCount,
+        description: `Department has ${memberCount} active member(s)`
+      });
+      suggestions.push('Remove all members from the department before deletion');
+    }
+
+    // Check for sub-departments
+    const subDepartmentCount = await Department.countDocuments({
+      parentDepartmentId: departmentId,
+      isActive: true
+    });
+
+    if (subDepartmentCount > 0) {
+      blockers.push({
+        type: 'sub_departments',
+        count: subDepartmentCount,
+        description: `Department has ${subDepartmentCount} active sub-department(s)`
+      });
+      suggestions.push('Delete or reassign sub-departments before deletion');
+    }
+
+    // Check for active events
+    const Event = require('../models/Event.model');
+    const activeEventCount = await Event.countDocuments({
+      departmentId: departmentId,
+      status: { $in: ['scheduled', 'ongoing'] }
+    });
+
+    if (activeEventCount > 0) {
+      blockers.push({
+        type: 'active_events',
+        count: activeEventCount,
+        description: `Department has ${activeEventCount} active event(s)`
+      });
+      suggestions.push('Complete or cancel active events before deletion');
+    }
+
+    const canDelete = blockers.length === 0;
+    const reason = canDelete ? 
+      'Department can be safely deleted' : 
+      `Cannot delete department: ${blockers.map(b => b.description).join(', ')}`;
+
+    return {
+      canDelete,
+      reason,
+      blockers,
+      suggestions,
+      department: {
+        id: department._id,
+        name: department.name,
+        category: department.category,
+        isActive: department.isActive
+      }
+    };
+  }
+
+  /**
+   * Delete department (improved error handling)
    */
   async deleteDepartment(departmentId, deletedBy, deletedByRole, ipAddress) {
     const department = await Department.findById(departmentId);
@@ -581,48 +686,33 @@ class DepartmentService {
       throw ApiError.forbidden('Access denied', ERROR_CODES.ACCESS_DENIED);
     }
 
-    // Check if department has members
-    const memberCount = await User.countDocuments({ departmentId, isActive: true });
-    if (memberCount > 0) {
-      throw ApiError.badRequest(
-        'Cannot delete department with active members. Remove members first.',
-        ERROR_CODES.BUSINESS_RULE_VIOLATION
-      );
-    }
-
-    // Check if department has sub-departments
-    const subDepartmentCount = await Department.countDocuments({ 
-      parentDepartmentId: departmentId, 
-      isActive: true 
-    });
-    if (subDepartmentCount > 0) {
-      throw ApiError.badRequest(
-        'Cannot delete department with active sub-departments.',
-        ERROR_CODES.BUSINESS_RULE_VIOLATION
-      );
+    // Enhanced validation before deletion
+    const safetyCheck = await this.canDeleteDepartmentSafe(departmentId, deletedBy, deletedByRole);
+    if (!safetyCheck.canDelete) {
+      throw ApiError.badRequest(safetyCheck.reason, ERROR_CODES.BUSINESS_RULE_VIOLATION);
     }
 
     // Soft delete
     department.isActive = false;
-    department.deletedAt = new Date();
-    department.deletedBy = deletedBy;
+    department.metadata.deletedAt = new Date();
+    department.metadata.deletedBy = deletedBy;
     await department.save();
 
-    // Log department deletion
+    // Log deletion
     await AuditLog.logAction({
       userId: deletedBy,
       action: AUDIT_ACTIONS.DEPARTMENT_DELETE,
       resource: 'department',
       resourceId: departmentId,
       details: {
-        name: department.name,
-        category: department.category
+        departmentName: department.name,
+        category: department.category,
+        previousLeader: department.leaderId
       },
-      ipAddress,
-      result: { success: true }
+      ipAddress
     });
 
-    return { success: true, message: SUCCESS_MESSAGES.DEPARTMENT_DELETED };
+    return department;
   }
 
   /**
@@ -1027,6 +1117,163 @@ class DepartmentService {
         hasPrev: page > 1
       }
     };
+  }
+
+  /**
+   * Get overall department statistics
+   */
+  async getAllDepartmentStatistics(requestingUserId, requestingUserRole, options = {}) {
+    const { timeframe = '30d' } = options;
+    
+    // Calculate date range based on timeframe
+    const now = new Date();
+    let startDate;
+    
+    switch (timeframe) {
+      case '7d':
+        startDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+        break;
+      case '30d':
+        startDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+        break;
+      case '90d':
+        startDate = new Date(now.getTime() - (90 * 24 * 60 * 60 * 1000));
+        break;
+      case '1y':
+        startDate = new Date(now.getTime() - (365 * 24 * 60 * 60 * 1000));
+        break;
+      default:
+        startDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+    }
+
+    try {
+      // Get departments accessible to user
+      const filters = {
+        scopedAccess: !this.canAccessAllDepartments(requestingUserRole),
+        currentUserRole: requestingUserRole,
+        departmentIds: await this.getUserAccessibleDepartmentIds(requestingUserId, requestingUserRole)
+      };
+
+      const departments = await Department.find(this.buildDepartmentQuery(filters))
+        .populate('leaderId', 'fullName role')
+        .lean();
+
+      // Calculate overall statistics
+      const totalDepartments = departments.length;
+      const activeDepartments = departments.filter(d => d.isActive).length;
+      const departmentsWithLeaders = departments.filter(d => d.leaderId).length;
+      
+      // Get member statistics
+      const memberStats = await User.aggregate([
+        {
+          $match: {
+            departmentIds: { $in: departments.map(d => d._id) }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalMembers: { $sum: 1 },
+            activeMembers: {
+              $sum: {
+                $cond: [{ $eq: ['$isActive', true] }, 1, 0]
+              }
+            }
+          }
+        }
+      ]);
+
+      // Get recent activity statistics
+      const recentActivity = await AuditLog.aggregate([
+        {
+          $match: {
+            resource: 'department',
+            createdAt: { $gte: startDate },
+            userId: { $exists: true }
+          }
+        },
+        {
+          $group: {
+            _id: '$action',
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      // Calculate department distribution by category
+      const categoryDistribution = departments.reduce((acc, dept) => {
+        acc[dept.category] = (acc[dept.category] || 0) + 1;
+        return acc;
+      }, {});
+
+      return {
+        overview: {
+          totalDepartments,
+          activeDepartments,
+          inactiveDepartments: totalDepartments - activeDepartments,
+          departmentsWithLeaders,
+          departmentsWithoutLeaders: totalDepartments - departmentsWithLeaders,
+          leadersAssignmentRate: totalDepartments > 0 ? ((departmentsWithLeaders / totalDepartments) * 100).toFixed(1) : 0
+        },
+        members: {
+          totalMembers: memberStats[0]?.totalMembers || 0,
+          activeMembers: memberStats[0]?.activeMembers || 0,
+          averageMembersPerDepartment: totalDepartments > 0 ? 
+            ((memberStats[0]?.totalMembers || 0) / totalDepartments).toFixed(1) : 0
+        },
+        distribution: {
+          byCategory: categoryDistribution
+        },
+        recentActivity: recentActivity.reduce((acc, activity) => {
+          acc[activity._id] = activity.count;
+          return acc;
+        }, {}),
+        timeframe: {
+          period: timeframe,
+          startDate: startDate.toISOString(),
+          endDate: now.toISOString()
+        }
+      };
+    } catch (error) {
+      logger.error('Failed to get department statistics', {
+        error: error.message,
+        requestingUserId,
+        timeframe
+      });
+      throw ApiError.internalError('Failed to retrieve department statistics');
+    }
+  }
+
+  /**
+   * Helper: Build department query based on filters
+   */
+  buildDepartmentQuery(filters) {
+    const query = { isActive: true };
+
+    if (filters.scopedAccess && filters.departmentIds && filters.departmentIds.length > 0) {
+      query._id = { $in: filters.departmentIds };
+    }
+
+    return query;
+  }
+
+  /**
+   * Helper: Check if user can access all departments
+   */
+  canAccessAllDepartments(userRole) {
+    return [USER_ROLES.SUPER_ADMIN, USER_ROLES.SENIOR_PASTOR].includes(userRole);
+  }
+
+  /**
+   * Helper: Get department IDs accessible to user
+   */
+  async getUserAccessibleDepartmentIds(userId, userRole) {
+    if (this.canAccessAllDepartments(userRole)) {
+      return [];
+    }
+
+    const user = await User.findById(userId).select('departmentIds');
+    return user?.departmentIds || [];
   }
 }
 

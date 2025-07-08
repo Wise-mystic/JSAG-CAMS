@@ -19,9 +19,13 @@ const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const departmentRoutes = require('./routes/department.routes');
 const eventRoutes = require('./routes/event.routes');
+const groupRoutes = require('./routes/groups.routes');
 const attendanceRoutes = require('./routes/attendance.routes');
 const reportRoutes = require('./routes/report.routes');
 const notificationRoutes = require('./routes/notification.routes');
+
+// Import models to ensure they are registered with mongoose
+require('./models/Subgroup.model');
 
 // Initialize Express app
 const app = express();
@@ -119,6 +123,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/departments', departmentRoutes);
 app.use('/api/v1/events', eventRoutes);
+app.use('/api/v1/groups', groupRoutes);
 app.use('/api/v1/attendance', attendanceRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
