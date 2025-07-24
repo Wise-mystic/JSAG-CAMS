@@ -117,7 +117,7 @@ const departmentSchema = new mongoose.Schema({
 });
 
 // Indexes
-departmentSchema.index({ name: 1 });
+// name index removed - field already has unique: true
 departmentSchema.index({ category: 1 });
 departmentSchema.index({ leaderId: 1 });
 departmentSchema.index({ isActive: 1 });

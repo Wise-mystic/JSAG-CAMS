@@ -12,10 +12,7 @@ const config = {
   // Database Configuration
   mongodb: {
     uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/cams_db',
-    options: {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    }
+    options: {}  // Empty options object - deprecated options removed
   },
   
   // Redis Configuration

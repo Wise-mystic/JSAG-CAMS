@@ -165,8 +165,8 @@ const userSchema = new mongoose.Schema({
 });
 
 // Indexes
-userSchema.index({ phoneNumber: 1 });
-userSchema.index({ email: 1 }, { sparse: true });
+// phoneNumber index removed - field already has unique: true
+// email index removed - field already has sparse: true which creates index
 userSchema.index({ role: 1 });
 userSchema.index({ departmentIds: 1 });
 userSchema.index({ isActive: 1 });

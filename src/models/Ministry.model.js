@@ -119,7 +119,7 @@ const ministrySchema = new mongoose.Schema({
 });
 
 // Indexes
-ministrySchema.index({ name: 1 });
+// name index removed - field already has unique: true
 ministrySchema.index({ departmentId: 1 });
 ministrySchema.index({ leaderId: 1 });
 ministrySchema.index({ isActive: 1 });

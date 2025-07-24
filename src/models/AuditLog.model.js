@@ -93,7 +93,7 @@ const auditLogSchema = new mongoose.Schema({
   timestamp: {
     type: Date,
     default: Date.now,
-    index: true,
+    // index: true removed - field is already indexed via compound indexes below
   },
 }, {
   timestamps: false, // We use custom timestamp field

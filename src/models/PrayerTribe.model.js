@@ -119,7 +119,7 @@ const prayerTribeSchema = new mongoose.Schema({
 });
 
 // Indexes
-prayerTribeSchema.index({ name: 1 });
+// name index removed - field already has unique: true
 prayerTribeSchema.index({ dayOfWeek: 1 });
 prayerTribeSchema.index({ leaderId: 1 });
 prayerTribeSchema.index({ isActive: 1 });
