@@ -82,6 +82,34 @@ if (config.env !== 'development') {
   console.log('Rate limiting disabled in development mode');
 }
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'CAMS Backend API is running',
+    service: 'Church Attendance Management System',
+    version: process.env.npm_package_version || '1.0.0',
+    timestamp: new Date().toISOString(),
+    environment: config.env,
+    endpoints: {
+      health: '/health',
+      detailedHealth: '/health/detailed',
+      api: '/api/v1',
+      documentation: '/api/v1/docs' // If you have API docs
+    },
+    apiRoutes: [
+      '/api/v1/auth',
+      '/api/v1/users', 
+      '/api/v1/departments',
+      '/api/v1/events',
+      '/api/v1/groups',
+      '/api/v1/attendance',
+      '/api/v1/reports',
+      '/api/v1/notifications'
+    ]
+  });
+});
+
 // Health check endpoints (no auth required)
 app.get('/health', (req, res) => {
   res.json({ 
