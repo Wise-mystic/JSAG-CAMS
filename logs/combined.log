@@ -3661,3 +3661,224 @@
 {"departmentCount":2,"level":"info","message":"Department performance report generated","service":"cams-backend","timeframe":30,"timestamp":"2025-07-08 02:54:08","userId":"68664db35eb73018aaed9c6c"}
 {"level":"info","message":"Ministry performance report generated","service":"cams-backend","timeframe":365,"timestamp":"2025-07-08 02:54:46","totalMinistries":2,"userId":"68664db35eb73018aaed9c6c"}
 {"level":"info","message":"SIGINT received. Starting graceful shutdown...","service":"cams-backend","timestamp":"2025-07-08 02:56:23"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-08 03:02:58"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-08 03:02:58"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-08 03:02:58"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-08 03:02:58"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-08 03:02:58"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-08T03:02:58.612Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-08 03:02:58"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-08 13:47:48"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-08 13:47:55"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-08 17:36:19"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-08 17:36:30"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-08 19:15:16"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-08 19:15:16"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-09 00:01:13"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-09 00:01:13"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-09 00:31:25"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-09 00:31:26"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-09 09:16:57"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-09 09:17:01"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-09 11:37:19"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-09 11:37:31"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-09 11:50:19"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-09 11:50:30"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-09 12:22:58"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-09 12:23:29"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-09 12:33:28"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-09 12:33:28"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-09 14:26:35"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-09 14:26:35"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-09 16:25:31"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-09 16:25:31"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-09 17:34:21"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-09 17:34:21"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-16 21:49:34"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-16 21:49:34"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-16 21:49:35"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-16 21:49:35"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-16 21:49:35"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-16T21:49:35.166Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-16 21:49:35"}
+{"category":"auth","error":"Phone number already registered","level":"error","message":"Registration failed","phoneNumber":"0591318002","service":"cams-backend","timestamp":"2025-07-16 21:49:55"}
+{"ip":"::1","level":"error","message":"Phone number already registered","method":"POST","name":"Error","service":"cams-backend","stack":"Error: Phone number already registered\n    at ApiError.conflict (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\middleware\\error.middleware.js:33:12)\n    at AuthService.register (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\services\\auth.service.js:62:24)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async AuthController.register (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\controllers\\auth.controller.js:41:22)","timestamp":"2025-07-16 21:49:55","url":"/api/v1/auth/register","user":"anonymous"}
+{"ip":"::1","level":"error","message":"Validation failed","method":"POST","name":"Error","service":"cams-backend","stack":"Error: Validation failed\n    at ApiError.badRequest (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\middleware\\error.middleware.js:17:12)\n    at C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\middleware\\validation.middleware.js:58:30\n    at Layer.handle [as handle_request] (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\node_modules\\express\\lib\\router\\layer.js:95:5)\n    at next (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\node_modules\\express\\lib\\router\\route.js:149:13)\n    at C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\node_modules\\express-rate-limit\\dist\\index.cjs:807:7\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\node_modules\\express-rate-limit\\dist\\index.cjs:691:5","timestamp":"2025-07-16 21:52:17","url":"/api/v1/auth/register","user":"anonymous"}
+{"category":"auth","error":"Email already registered","level":"error","message":"Registration failed","phoneNumber":"0591318003","service":"cams-backend","timestamp":"2025-07-16 21:53:05"}
+{"ip":"::1","level":"error","message":"Email already registered","method":"POST","name":"Error","service":"cams-backend","stack":"Error: Email already registered\n    at ApiError.conflict (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\middleware\\error.middleware.js:33:12)\n    at AuthService.register (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\services\\auth.service.js:69:26)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async AuthController.register (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\controllers\\auth.controller.js:41:22)","timestamp":"2025-07-16 21:53:05","url":"/api/v1/auth/register","user":"anonymous"}
+{"level":"warn","message":"SMS Service: Would send to +233591318003: Your CAMS verification code is: 824736. This code will expire in 5 minutes.","service":"cams-backend","timestamp":"2025-07-16 21:53:19"}
+{"category":"auth","error":"getaddrinfo ENOTFOUND ac-ed2jg8k-shard-00-02.7377gek.mongodb.net","level":"error","message":"Login failed","phoneNumber":"0591318003","service":"cams-backend","timestamp":"2025-07-16 22:00:21"}
+{"ip":"::1","level":"error","message":"getaddrinfo ENOTFOUND ac-ed2jg8k-shard-00-02.7377gek.mongodb.net","method":"POST","name":"MongoServerSelectionError","service":"cams-backend","stack":"MongoServerSelectionError: getaddrinfo ENOTFOUND ac-ed2jg8k-shard-00-02.7377gek.mongodb.net\n    at Topology.selectServer (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\node_modules\\mongodb\\lib\\sdam\\topology.js:326:38)\n    at async tryOperation (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\node_modules\\mongodb\\lib\\operations\\execute_operation.js:192:22)\n    at async executeOperation (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\node_modules\\mongodb\\lib\\operations\\execute_operation.js:75:16)\n    at async Collection.updateOne (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\node_modules\\mongodb\\lib\\collection.js:207:16)","timestamp":"2025-07-16 22:00:21","url":"/api/v1/auth/login","user":"anonymous"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-16 22:00:39"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:00:39"}
+{"category":"auth","level":"info","message":"User login successful","phoneNumber":"0591318003","service":"cams-backend","timestamp":"2025-07-16 22:02:22","userId":"68781f4ee9ddcfc3ddb94777"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:04:24"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:04:24"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-16 22:04:24"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-16 22:04:24"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:04:24"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-16T22:04:24.510Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-16 22:04:24"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-16 22:05:34"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:06:46"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:06:46"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-16 22:06:46"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-16 22:06:46"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:06:46"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-16T22:06:47.008Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-16 22:06:47"}
+{"level":"warn","message":"SMS Service: Would send to +233591318003: Your CAMS verification code is: 618713. This code will expire in 5 minutes.","service":"cams-backend","timestamp":"2025-07-16 22:06:54"}
+{"ip":"::1","level":"error","message":"Token has expired","method":"GET","name":"Error","service":"cams-backend","stack":"Error: Token has expired\n    at ApiError.unauthorized (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\middleware\\error.middleware.js:21:12)\n    at authenticateToken (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\middleware\\auth.middleware.js:33:24)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)","timestamp":"2025-07-16 22:11:07","url":"/api/v1/auth/me","user":"anonymous"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-16 22:15:14"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:15:20"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-16 22:19:59"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:19:59"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-16 22:22:46"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:22:46"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:25:10"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:25:10"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-16 22:25:10"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-16 22:25:10"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:25:10"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-16T22:25:10.851Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-16 22:25:10"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:25:21"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:25:21"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-16 22:25:21"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-16 22:25:21"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-16 22:25:21"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-16T22:25:21.115Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-16 22:25:21"}
+{"level":"warn","message":"SMS Service: Would send to +233591318539: Your CAMS verification code is: 099376. This code will expire in 5 minutes.","service":"cams-backend","timestamp":"2025-07-16 22:33:21"}
+{"category":"auth","error":"Phone number already registered","level":"error","message":"Registration failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-16 22:36:14"}
+{"ip":"::1","level":"error","message":"Phone number already registered","method":"POST","name":"Error","service":"cams-backend","stack":"Error: Phone number already registered\n    at ApiError.conflict (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\middleware\\error.middleware.js:33:12)\n    at AuthService.register (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\services\\auth.service.js:62:24)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async AuthController.register (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\controllers\\auth.controller.js:41:22)","timestamp":"2025-07-16 22:36:14","url":"/api/v1/auth/register","user":"anonymous"}
+{"level":"warn","message":"SMS Service: Would send to +233591318539: Your CAMS verification code is: 744181. This code will expire in 5 minutes.","service":"cams-backend","timestamp":"2025-07-16 22:36:38"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-16 23:51:38"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 00:12:56"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-17 07:32:27"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:32:36"}
+{"level":"warn","message":"SMS Service: Would send to +233591318539: Your CAMS verification code is: 768821. This code will expire in 5 minutes.","service":"cams-backend","timestamp":"2025-07-17 07:33:02"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:34:19"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:34:19"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 07:34:19"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 07:34:19"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:34:19"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: production\n        📅 Started at: 2025-07-17T07:34:19.381Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 07:34:19"}
+{"level":"info","message":"SIGINT received. Starting graceful shutdown...","service":"cams-backend","timestamp":"2025-07-17 07:35:35"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:35:46"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:35:46"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 07:35:46"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 07:35:46"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:35:46"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: production\n        📅 Started at: 2025-07-17T07:35:46.687Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 07:35:46"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:37:34"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:37:34"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 07:37:34"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 07:37:34"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:37:34"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: production\n        📅 Started at: 2025-07-17T07:37:34.395Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 07:37:34"}
+{"level":"info","message":"SIGINT received. Starting graceful shutdown...","service":"cams-backend","timestamp":"2025-07-17 07:38:06"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:38:20"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:38:20"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 07:38:20"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 07:38:20"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:38:20"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: production\n        📅 Started at: 2025-07-17T07:38:20.179Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 07:38:20"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:39:32"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:39:32"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 07:39:32"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 07:39:32"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:39:32"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: production\n        📅 Started at: 2025-07-17T07:39:32.361Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 07:39:32"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:41:42"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:41:42"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 07:41:42"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 07:41:42"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:41:42"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-17T07:41:42.329Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 07:41:42"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:51:59"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:51:59"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 07:51:59"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 07:51:59"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:51:59"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-17T07:51:59.409Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 07:51:59"}
+{"level":"warn","message":"SMS Service: Would send to +233591318539: Your CAMS verification code is: 949944. This code will expire in 5 minutes.","service":"cams-backend","timestamp":"2025-07-17 07:52:37"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:56:35"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:56:35"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 07:56:35"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 07:56:35"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:56:35"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: production\n        📅 Started at: 2025-07-17T07:56:35.841Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 07:56:35"}
+{"level":"info","message":"SIGINT received. Starting graceful shutdown...","service":"cams-backend","timestamp":"2025-07-17 07:57:19"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:57:28"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:57:28"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 07:57:28"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 07:57:28"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:57:28"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-17T07:57:28.526Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 07:57:28"}
+{"level":"info","message":"SIGINT received. Starting graceful shutdown...","service":"cams-backend","timestamp":"2025-07-17 07:57:49"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:57:57"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:57:57"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 07:57:57"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 07:57:57"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:57:57"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: production\n        📅 Started at: 2025-07-17T07:57:57.672Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 07:57:57"}
+{"error":"Request failed with status code 405","level":"error","message":"SMS send failed","phone":"0591318539","response":"","service":"cams-backend","timestamp":"2025-07-17 07:58:19"}
+{"category":"auth","error":"Failed to send SMS: Request failed with status code 405","level":"error","message":"Password reset request failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-17 07:58:19"}
+{"ip":"::1","level":"error","message":"Failed to send SMS: Request failed with status code 405","method":"POST","name":"Error","service":"cams-backend","stack":"Error: Failed to send SMS: Request failed with status code 405\n    at SMSService.sendSMS (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\config\\sms.js:99:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async SMSService.sendOTP (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\config\\sms.js:257:22)\n    at async AuthService.requestPasswordReset (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\services\\auth.service.js:376:23)\n    at async AuthController.forgotPassword (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\controllers\\auth.controller.js:220:22)","timestamp":"2025-07-17 07:58:19","url":"/api/v1/auth/forgot-password","user":"anonymous"}
+{"error":"Request failed with status code 405","level":"error","message":"SMS send failed","phone":"0591318539","response":"","service":"cams-backend","timestamp":"2025-07-17 07:58:27"}
+{"category":"auth","error":"Failed to send SMS: Request failed with status code 405","level":"error","message":"Password reset request failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-17 07:58:27"}
+{"ip":"::1","level":"error","message":"Failed to send SMS: Request failed with status code 405","method":"POST","name":"Error","service":"cams-backend","stack":"Error: Failed to send SMS: Request failed with status code 405\n    at SMSService.sendSMS (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\config\\sms.js:99:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async SMSService.sendOTP (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\config\\sms.js:257:22)\n    at async AuthService.requestPasswordReset (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\services\\auth.service.js:376:23)\n    at async AuthController.forgotPassword (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\controllers\\auth.controller.js:220:22)","timestamp":"2025-07-17 07:58:27","url":"/api/v1/auth/forgot-password","user":"anonymous"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:59:23"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:59:23"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 07:59:23"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 07:59:23"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 07:59:23"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: production\n        📅 Started at: 2025-07-17T07:59:23.852Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 07:59:23"}
+{"error":"Request failed with status code 405","level":"error","message":"SMS send failed","phone":"0591318539","response":"","service":"cams-backend","timestamp":"2025-07-17 07:59:32"}
+{"category":"auth","error":"Failed to send SMS: Request failed with status code 405","level":"error","message":"Password reset request failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-17 07:59:32"}
+{"ip":"::1","level":"error","message":"Failed to send SMS: Request failed with status code 405","method":"POST","name":"Error","service":"cams-backend","stack":"Error: Failed to send SMS: Request failed with status code 405\n    at SMSService.sendSMS (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\config\\sms.js:99:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async SMSService.sendOTP (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\config\\sms.js:257:22)\n    at async AuthService.requestPasswordReset (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\services\\auth.service.js:376:23)\n    at async AuthController.forgotPassword (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\controllers\\auth.controller.js:220:22)","timestamp":"2025-07-17 07:59:32","url":"/api/v1/auth/forgot-password","user":"anonymous"}
+{"error":"Request failed with status code 405","level":"error","message":"SMS send failed","phone":"0591318539","response":"","service":"cams-backend","timestamp":"2025-07-17 08:00:08"}
+{"category":"auth","error":"Failed to send SMS: Request failed with status code 405","level":"error","message":"Password reset request failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-17 08:00:08"}
+{"ip":"::1","level":"error","message":"Failed to send SMS: Request failed with status code 405","method":"POST","name":"Error","service":"cams-backend","stack":"Error: Failed to send SMS: Request failed with status code 405\n    at SMSService.sendSMS (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\config\\sms.js:99:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async SMSService.sendOTP (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\config\\sms.js:257:22)\n    at async AuthService.requestPasswordReset (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\services\\auth.service.js:376:23)\n    at async AuthController.forgotPassword (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\controllers\\auth.controller.js:220:22)","timestamp":"2025-07-17 08:00:08","url":"/api/v1/auth/forgot-password","user":"anonymous"}
+{"level":"info","message":"SIGINT received. Starting graceful shutdown...","service":"cams-backend","timestamp":"2025-07-17 08:00:25"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 08:00:35"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 08:00:35"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 08:00:36"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 08:00:36"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 08:00:36"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-17T08:00:36.035Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 08:00:36"}
+{"level":"warn","message":"SMS Service: Would send to +233591318539: Your CAMS verification code is: 082173. This code will expire in 5 minutes.","service":"cams-backend","timestamp":"2025-07-17 08:00:54"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 08:07:14"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 08:07:14"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 08:07:14"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 08:07:14"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 08:07:14"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-17T08:07:14.598Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 08:07:14"}
+{"level":"warn","message":"SMS Service: Would send to +233591318539: Your CAMS verification code is: 115973. This code will expire in 5 minutes.","service":"cams-backend","timestamp":"2025-07-17 08:07:50"}
+{"level":"warn","message":"SMS Service: Would send to +233591318539: Your CAMS verification code is: 559954. This code will expire in 5 minutes.","service":"cams-backend","timestamp":"2025-07-17 08:08:38"}
+{"level":"info","message":"SIGINT received. Starting graceful shutdown...","service":"cams-backend","timestamp":"2025-07-17 08:12:17"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 08:12:29"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 08:12:29"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 08:12:29"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 08:12:29"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 08:12:29"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-17T08:12:29.372Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 08:12:29"}
+{"error":"Request failed with status code 405","level":"error","message":"SMS send failed","phone":"0591318539","response":"","service":"cams-backend","timestamp":"2025-07-17 08:13:31"}
+{"category":"auth","error":"Failed to send SMS: Request failed with status code 405","level":"error","message":"Password reset request failed","phoneNumber":"0591318539","service":"cams-backend","timestamp":"2025-07-17 08:13:31"}
+{"ip":"::1","level":"error","message":"Failed to send SMS: Request failed with status code 405","method":"POST","name":"Error","service":"cams-backend","stack":"Error: Failed to send SMS: Request failed with status code 405\n    at SMSService.sendSMS (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\config\\sms.js:100:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async SMSService.sendOTP (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\config\\sms.js:258:22)\n    at async AuthService.requestPasswordReset (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\services\\auth.service.js:376:23)\n    at async AuthController.forgotPassword (C:\\Users\\lenovo\\OneDrive\\saved\\CAMS - 1\\backend\\src\\controllers\\auth.controller.js:220:22)","timestamp":"2025-07-17 08:13:31","url":"/api/v1/auth/forgot-password","user":"anonymous"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 08:20:22"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-17 08:20:22"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-17 08:20:22"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-17 08:20:22"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-17 08:20:22"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-17T08:20:22.603Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-17 08:20:22"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-17 11:08:59"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-17 11:09:01"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-24 14:42:57"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-24 14:42:57"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-24 14:42:57"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-24 14:42:57"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-24 14:42:57"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-24T14:42:57.371Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-24 14:42:57"}
+{"level":"info","message":"SIGINT received. Starting graceful shutdown...","service":"cams-backend","timestamp":"2025-07-24 14:43:29"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-24 14:43:46"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-24 14:43:46"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-24 14:43:46"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-24 14:43:46"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-24 14:43:46"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5000\n        🌍 Environment: development\n        📅 Started at: 2025-07-24T14:43:46.700Z\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-24 14:43:46"}

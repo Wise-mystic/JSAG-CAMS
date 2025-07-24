@@ -47,8 +47,9 @@ class SMSService {
         throw new Error('Invalid phone number format');
       }
       
-      // Always use mock in development or if not configured
-      if (config.env === 'development' || !this.isConfigured) {
+      // Allow real SMS in development if SMS_FORCE_REAL=true
+      const forceReal = process.env.SMS_FORCE_REAL === 'true';
+      if ((config.env === 'development' && !forceReal) || !this.isConfigured) {
         logger.warn(`SMS Service: Would send to ${formatted}: ${message}`);
         return {
           success: true,
@@ -58,44 +59,43 @@ class SMSService {
           cost: 0.0
         };
       }
-      
-      // Prepare request data
-      const requestData = {
-        api_key: this.apiKey,
+      // Prepare request data for GET
+      const params = new URLSearchParams({
+        key: this.apiKey,
+        to: formatted,
+        msg: message,
         sender_id: this.senderId,
-        phone: formatted,
-        message: message,
-      };
-      
-      // Send SMS via SMSnotifyGh API
-      const response = await axios.post(`${this.baseUrl}/send`, requestData, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000, // 10 seconds timeout
       });
-      
-      // Log successful send
-      logger.info('SMS sent successfully', {
-        phone: formatted,
-        messageId: response.data.message_id || `mock-${Date.now()}`,
-        status: response.data.status || 'sent',
-      });
-      
+      const url = `${this.baseUrl}/smsapi?${params.toString()}`;
+      // Send SMS via GET request
+      const response = await axios.get(url, { timeout: 10000 });
+      // Interpret response
+      const result = response.data && response.data.toString ? response.data.toString().trim() : response.data;
+      let status = 'unknown';
+      switch (result) {
+        case '1000': status = 'sent'; break;
+        case '1002': status = 'failed'; break;
+        case '1003': status = 'insufficient_balance'; break;
+        case '1004': status = 'invalid_api_key'; break;
+        case '1005': status = 'invalid_phone'; break;
+        case '1006': status = 'invalid_sender_id'; break;
+        case '1007': status = 'scheduled'; break;
+        case '1008': status = 'empty_message'; break;
+        default: status = 'unknown';
+      }
+      logger.info('SMS sent', { phone: formatted, status, result });
       return {
-        success: true,
-        messageId: response.data.message_id || `mock-${Date.now()}`,
-        status: response.data.status || 'sent',
-        cost: response.data.cost || 0.0
+        success: status === 'sent' || status === 'scheduled',
+        messageId: `smsnotifygh-${Date.now()}`,
+        status,
+        providerCode: result
       };
-      
     } catch (error) {
       logger.error('SMS send failed', {
         phone: phoneNumber,
         error: error.message,
         response: error.response?.data,
       });
-      
       throw new Error(`Failed to send SMS: ${error.message}`);
     }
   }
