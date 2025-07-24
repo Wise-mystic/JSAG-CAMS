@@ -12,7 +12,10 @@ const config = {
   // Database Configuration
   mongodb: {
     uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/cams_db',
-    options: {}  // Empty options object - deprecated options removed
+    options: {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    }
   },
   
   // Redis Configuration
@@ -69,8 +72,16 @@ const config = {
   cors: {
     origin: process.env.ALLOWED_ORIGINS 
       ? process.env.ALLOWED_ORIGINS.split(',') 
-      : ['http://localhost:3000'],
+      : [
+          'http://localhost:3000',
+          'http://localhost:5173',  // Vite dev server
+          'https://localhost:5173', // HTTPS variant
+          'http://127.0.0.1:5173',  // Alternative localhost
+          'https://cams-frontend.vercel.app', // Future Vercel deployment
+        ],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   },
   
   // File Upload
@@ -104,7 +115,7 @@ const config = {
 if (config.env === 'production') {
   const requiredVars = [
     'JWT_SECRET',
-    'JWT_REFRESH_SECRET', 
+    'JWT_REFRESH_SECRET',
     'MONGODB_URI',
     'SMS_API_KEY',
   ];
@@ -112,17 +123,8 @@ if (config.env === 'production') {
   const missingVars = requiredVars.filter(varName => !process.env[varName]);
   
   if (missingVars.length > 0) {
-    console.error('❌ Missing required environment variables for production:');
-    missingVars.forEach(varName => {
-      console.error(`   - ${varName}`);
-    });
-    console.error('\n📚 Please check RENDER_DEPLOYMENT_GUIDE.md for setup instructions');
-    console.error('🔧 Set these variables in your Render service dashboard\n');
     throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
   }
-  
-  // Log successful validation
-  console.log('✅ All required environment variables are configured');
 }
 
 module.exports = config; 

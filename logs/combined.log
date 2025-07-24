@@ -3956,3 +3956,41 @@
 {"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-24 20:18:36"}
 {"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-24 20:18:36"}
 {"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-24 20:18:36"}
+{"level":"info","message":"Starting CAMS Server...","service":"cams-backend","timestamp":"2025-07-24 20:37:43"}
+{"level":"info","message":"Environment: production","service":"cams-backend","timestamp":"2025-07-24 20:37:43"}
+{"level":"info","message":"Port: 5001","service":"cams-backend","timestamp":"2025-07-24 20:37:43"}
+{"level":"info","message":"MongoDB URI: Configured","service":"cams-backend","timestamp":"2025-07-24 20:37:43"}
+{"level":"info","message":"Redis Host: localhost","service":"cams-backend","timestamp":"2025-07-24 20:37:43"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-24 20:37:47"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-24 20:37:47"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-24 20:37:47"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-24 20:37:47"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-24 20:37:47"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: production\n        📅 Started at: 2025-07-24T20:37:47.664Z\n        🔗 Health Check: http://localhost:5001/health\n        📊 API Base: http://localhost:5001/api/v1\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-24 20:37:47"}
+{"level":"info","message":"SIGINT received. Starting graceful shutdown...","service":"cams-backend","timestamp":"2025-07-24 20:39:43"}
+{"level":"info","message":"Starting CAMS Server...","service":"cams-backend","timestamp":"2025-07-24 20:39:55"}
+{"level":"info","message":"Environment: development","service":"cams-backend","timestamp":"2025-07-24 20:39:55"}
+{"level":"info","message":"Port: 5001","service":"cams-backend","timestamp":"2025-07-24 20:39:55"}
+{"level":"info","message":"MongoDB URI: Configured","service":"cams-backend","timestamp":"2025-07-24 20:39:55"}
+{"level":"info","message":"Redis Host: localhost","service":"cams-backend","timestamp":"2025-07-24 20:39:55"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-24 20:39:59"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-24 20:39:59"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-24 20:39:59"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-24 20:39:59"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-24 20:39:59"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-24T20:39:59.350Z\n        🔗 Health Check: http://localhost:5001/health\n        📊 API Base: http://localhost:5001/api/v1\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-24 20:39:59"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-24 21:27:09"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-24 21:27:10"}
+{"level":"warn","message":"MongoDB disconnected","service":"cams-backend","timestamp":"2025-07-24 23:39:03"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-24 23:39:03"}
+{"level":"info","message":"Starting CAMS Server...","service":"cams-backend","timestamp":"2025-07-24 23:54:04"}
+{"level":"info","message":"Environment: development","service":"cams-backend","timestamp":"2025-07-24 23:54:04"}
+{"level":"info","message":"Port: 5001","service":"cams-backend","timestamp":"2025-07-24 23:54:04"}
+{"level":"info","message":"MongoDB URI: Configured","service":"cams-backend","timestamp":"2025-07-24 23:54:04"}
+{"level":"info","message":"Redis Host: localhost","service":"cams-backend","timestamp":"2025-07-24 23:54:04"}
+{"level":"info","message":"MongoDB connected successfully","service":"cams-backend","timestamp":"2025-07-24 23:54:08"}
+{"level":"info","message":"Database connected successfully","service":"cams-backend","timestamp":"2025-07-24 23:54:08"}
+{"level":"info","message":"Redis client connected","service":"cams-backend","timestamp":"2025-07-24 23:54:08"}
+{"level":"info","message":"Redis client ready","service":"cams-backend","timestamp":"2025-07-24 23:54:08"}
+{"level":"info","message":"Redis connected successfully","service":"cams-backend","timestamp":"2025-07-24 23:54:08"}
+{"level":"info","message":"\n        ################################################\n        🚀 CAMS Server listening on port 5001\n        🌍 Environment: development\n        📅 Started at: 2025-07-24T23:54:08.892Z\n        🔗 Health Check: http://localhost:5001/health\n        📊 API Base: http://localhost:5001/api/v1\n        ################################################\n      ","service":"cams-backend","timestamp":"2025-07-24 23:54:08"}
