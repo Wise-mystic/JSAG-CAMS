@@ -42,9 +42,19 @@ const connectDB = async () => {
     
   } catch (error) {
     logger.error('MongoDB initial connection failed:', error);
-    // Exit process with failure
-    process.exit(1);
+    
+    // In production, try to continue without crashing for better error reporting
+    if (config.env === 'production') {
+      logger.error('MongoDB connection failed in production. Server will start but database operations will fail.');
+      // Don't exit, let the server start and show proper error messages
+      return false;
+    } else {
+      // In development, exit immediately for faster debugging
+      process.exit(1);
+    }
   }
+  
+  return true;
 };
 
 // Disconnect from MongoDB

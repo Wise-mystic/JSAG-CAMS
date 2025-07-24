@@ -233,25 +233,41 @@ let server;
 
 const startServer = async () => {
   try {
-    // Connect to MongoDB
-    await connectDB();
-    logger.info('Database connected successfully');
+    logger.info(`Starting CAMS Server...`);
+    logger.info(`Environment: ${config.env}`);
+    logger.info(`Port: ${config.port}`);
+    logger.info(`MongoDB URI: ${config.mongodb.uri ? 'Configured' : 'Missing'}`);
+    logger.info(`Redis Host: ${config.redis.host}`);
     
-    // Connect to Redis
-    await connectRedis();
-    logger.info('Redis connected successfully');
+    // Connect to MongoDB
+    const dbConnected = await connectDB();
+    if (dbConnected) {
+      logger.info('Database connected successfully');
+    } else {
+      logger.warn('Database connection failed - continuing without DB');
+    }
+    
+    // Connect to Redis (optional)
+    try {
+      await connectRedis();
+      logger.info('Redis connected successfully');
+    } catch (error) {
+      logger.warn('Redis connection failed - continuing without cache:', error.message);
+    }
     
     // Initialize background jobs
     // await initializeJobs();
     // logger.info('Background jobs initialized');
     
     // Start Express server
-    server = app.listen(config.port, () => {
+    server = app.listen(config.port, '0.0.0.0', () => {
       logger.info(`
         ################################################
         🚀 CAMS Server listening on port ${config.port}
         🌍 Environment: ${config.env}
         📅 Started at: ${new Date().toISOString()}
+        🔗 Health Check: http://localhost:${config.port}/health
+        📊 API Base: http://localhost:${config.port}/api/v1
         ################################################
       `);
     });
@@ -272,6 +288,13 @@ const startServer = async () => {
     
   } catch (error) {
     logger.error('Failed to start server:', error);
+    logger.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      env: config.env,
+      port: config.port,
+      mongoUri: config.mongodb.uri ? 'Set' : 'Missing'
+    });
     process.exit(1);
   }
 };

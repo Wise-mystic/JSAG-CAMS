@@ -104,7 +104,7 @@ const config = {
 if (config.env === 'production') {
   const requiredVars = [
     'JWT_SECRET',
-    'JWT_REFRESH_SECRET',
+    'JWT_REFRESH_SECRET', 
     'MONGODB_URI',
     'SMS_API_KEY',
   ];
@@ -112,8 +112,17 @@ if (config.env === 'production') {
   const missingVars = requiredVars.filter(varName => !process.env[varName]);
   
   if (missingVars.length > 0) {
+    console.error('❌ Missing required environment variables for production:');
+    missingVars.forEach(varName => {
+      console.error(`   - ${varName}`);
+    });
+    console.error('\n📚 Please check RENDER_DEPLOYMENT_GUIDE.md for setup instructions');
+    console.error('🔧 Set these variables in your Render service dashboard\n');
     throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
   }
+  
+  // Log successful validation
+  console.log('✅ All required environment variables are configured');
 }
 
 module.exports = config; 
